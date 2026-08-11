@@ -12,9 +12,14 @@ class DesktopClockWidget : public QWidget {
 public:
     explicit DesktopClockWidget(QWidget* parent = nullptr);
 
+    // 0 = large, 1 = medium (default), 2 = small
+    void setSize(int size);
+    int size() const { return size_; }
+
 signals:
     void showMainWindowRequested();
     void closeRequested();
+    void sizeChanged(int size);
 
 protected:
     void mousePressEvent(QMouseEvent* e) override;
@@ -25,6 +30,7 @@ private:
     QLabel* timeLabel_ = nullptr;
     QLabel* dateLabel_ = nullptr;
     QPoint dragPos_;
+    int size_ = 1;
 };
 
 // Small topmost popup shown on the hourly chime; auto-hides after seconds.

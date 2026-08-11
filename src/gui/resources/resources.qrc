@@ -3,5 +3,8 @@
         <file alias="styles/flat_theme.qss">../styles/flat_theme.qss</file>
         <file>icons/app.png</file>
         <file>icons/check.png</file>
+        <file>icons/spin_up.png</file>
+        <file>icons/spin_down.png</file>
+        <file>icons/combo_down.png</file>
     </qresource>
 </RCC>

@@ -5,9 +5,9 @@
 #include <QHBoxLayout>
 #include <QTextEdit>
 #include <QLabel>
-#include <QPushButton>
 #include <QMouseEvent>
 #include <QCloseEvent>
+#include <QPainter>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -28,7 +28,6 @@ StickyNoteWidget::StickyNoteWidget(QWidget* parent)
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
     setFixedSize(260, 320);
-    setStyleSheet("StickyNoteWidget { background: rgba(255, 249, 196, 240); border-radius: 8px; }");
 
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(8, 6, 8, 8);
@@ -42,15 +41,16 @@ StickyNoteWidget::StickyNoteWidget(QWidget* parent)
     title->setStyleSheet("color: #8D6E63; font-size: 12px; font-weight: bold; background: transparent;");
     header->addWidget(title);
     header->addStretch();
-    auto* closeBtn = new QPushButton(QStringLiteral("\u2715"), this); // ✕
+    auto* closeBtn = new QLabel(QStringLiteral("\u00d7"), this); // ×
+    closeBtn_ = closeBtn;
     closeBtn->setFixedSize(22, 22);
+    closeBtn->setAlignment(Qt::AlignCenter);
     closeBtn->setCursor(Qt::PointingHandCursor);
-    closeBtn->setStyleSheet("QPushButton { background: transparent; color: #8D6E63;"
-                            " border: none; border-radius: 4px; font-size: 13px; }"
-                            "QPushButton:hover { background: rgba(229, 57, 53, 0.85); color: #FFFFFF; }");
+    closeBtn->setStyleSheet("QLabel { background: rgba(255, 249, 196, 240); color: #8D6E63;"
+                            " border-radius: 4px; font-size: 15px; font-weight: bold; }");
+    closeBtn->installEventFilter(this);
     header->addWidget(closeBtn);
     layout->addLayout(header);
-    connect(closeBtn, &QPushButton::clicked, this, &StickyNoteWidget::hide);
 
     editor_ = new QTextEdit(this);
     editor_->setPlaceholderText(QStringLiteral("\u5728\u8fd9\u91cc\u8bb0\u5f55\u4fbf\u7b7e...")); // 在这里记录便签...
@@ -86,6 +86,40 @@ void StickyNoteWidget::save() {
     if (f.open(QIODevice::WriteOnly)) {
         f.write(QJsonDocument(obj).toJson());
     }
+}
+
+void StickyNoteWidget::paintEvent(QPaintEvent* e) {
+    // Layered (translucent) top-level window: QSS backgrounds on custom
+    // QWidget subclasses are unreliable here, so paint the note body manually.
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(255, 249, 196, 240));
+    p.drawRoundedRect(rect(), 8, 8);
+    QWidget::paintEvent(e);
+}
+
+bool StickyNoteWidget::eventFilter(QObject* obj, QEvent* e) {
+    if (obj == closeBtn_) {
+        switch (e->type()) {
+        case QEvent::MouseButtonPress:
+            return true; // consume: do not start a window drag from the button
+        case QEvent::MouseButtonRelease:
+            hide();
+            return true;
+        case QEvent::Enter:
+            closeBtn_->setStyleSheet("QLabel { background: rgba(229, 57, 53, 0.85);"
+                                     " color: #FFFFFF; border-radius: 4px; font-size: 15px; font-weight: bold; }");
+            return true;
+        case QEvent::Leave:
+            closeBtn_->setStyleSheet("QLabel { background: rgba(255, 249, 196, 240); color: #8D6E63;"
+                                     " border-radius: 4px; font-size: 15px; font-weight: bold; }");
+            return true;
+        default:
+            break;
+        }
+    }
+    return QWidget::eventFilter(obj, e);
 }
 
 void StickyNoteWidget::mousePressEvent(QMouseEvent* e) {

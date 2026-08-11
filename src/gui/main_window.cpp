@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
 {
     setWindowTitle(QStringLiteral("\u68a6\u7545\u95f9\u949f")); // 梦畅闹钟
     setWindowIcon(ThemeManager::appIcon());
-    setFixedSize(740, 480);
+    setFixedSize(860, 480);
 
     setupUi();
     setupTray();
@@ -296,6 +296,14 @@ void MainWindow::setDesktopClockVisible(bool visible) {
     if (visible) {
         if (!desktopClock_) {
             desktopClock_ = new DesktopClockWidget(nullptr);
+            desktopClock_->setSize(
+                s.get({"ui", "desktop_clock_size"}).toInt(1));
+            connect(desktopClock_, &DesktopClockWidget::sizeChanged,
+                    this, [](int sz) {
+                auto& st = mcclock::dal::SettingsManager::instance();
+                st.set({"ui", "desktop_clock_size"}, sz);
+                st.save();
+            });
             connect(desktopClock_, &DesktopClockWidget::showMainWindowRequested,
                     this, &MainWindow::showFromTray);
             connect(desktopClock_, &DesktopClockWidget::closeRequested, this, [this]() {

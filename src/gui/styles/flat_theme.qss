@@ -24,8 +24,8 @@ QWidget {
     background: transparent;
     color: #FFFFFF;
     border: none;
-    padding: 10px 14px;
-    font-size: 13px;
+    padding: 10px 6px;
+    font-size: 12px;
 }
 
 #NavigationBar QPushButton:hover {
@@ -98,8 +98,11 @@ QLineEdit:focus, QSpinBox:focus, QComboBox:focus, QTimeEdit:focus, QDateEdit:foc
 }
 
 QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
     border: none;
     width: 24px;
+    image: url(:/icons/combo_down.png);
 }
 
 QComboBox QAbstractItemView {
@@ -107,6 +110,30 @@ QComboBox QAbstractItemView {
     border: 1px solid #CFD8DC;
     selection-background-color: #E3F2FD;
     selection-color: #1565C0;
+}
+
+/* ── Spin box arrows ── */
+QSpinBox::up-button, QDoubleSpinBox::up-button, QTimeEdit::up-button,
+QDateEdit::up-button, QDateTimeEdit::up-button {
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    border: none;
+    image: url(:/icons/spin_up.png);
+}
+
+QSpinBox::down-button, QDoubleSpinBox::down-button, QTimeEdit::down-button,
+QDateEdit::down-button, QDateTimeEdit::down-button {
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    border: none;
+    image: url(:/icons/spin_down.png);
+}
+
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover, QTimeEdit::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover, QTimeEdit::down-button:hover {
+    background-color: #E3F2FD;
 }
 
 /* ── Check boxes / radio buttons ── */

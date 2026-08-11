@@ -26,7 +26,7 @@ SidebarWidget::SidebarWidget(QWidget* parent)
         auto* btn = new QPushButton(text, this);
         btn->setFixedHeight(52);
         btn->setProperty("flatStyle", "secondary");
-        btn->setStyleSheet("font-size: 12px;");
+        btn->setStyleSheet("font-size: 12px; padding: 2px;");
         layout->addWidget(btn);
         return btn;
     };

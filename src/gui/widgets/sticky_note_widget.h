@@ -4,6 +4,7 @@
 #include <QPoint>
 
 class QTextEdit;
+class QLabel;
 
 namespace mcclock::gui {
 
@@ -18,6 +19,8 @@ signals:
     void visibilityChanged(bool visible);
 
 protected:
+    void paintEvent(QPaintEvent* e) override;
+    bool eventFilter(QObject* obj, QEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
@@ -30,6 +33,7 @@ private:
     void save();
 
     QTextEdit* editor_ = nullptr;
+    QLabel* closeBtn_ = nullptr;
     QPoint dragPos_;
     bool dragging_ = false;
 };
