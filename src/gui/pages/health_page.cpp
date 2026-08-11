@@ -15,6 +15,9 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QMouseEvent>
+#include <QCloseEvent>
+
+#include <functional>
 
 namespace mcclock::gui {
 
@@ -26,7 +29,8 @@ namespace {
 // Fullscreen overlay reminder used when display mode is Fullscreen
 class FullscreenReminder : public QWidget {
 public:
-    explicit FullscreenReminder(const QString& text) {
+    explicit FullscreenReminder(const QString& text, std::function<void()> onClose = nullptr)
+        : onClose_(std::move(onClose)) {
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setStyleSheet("background-color: rgba(38, 50, 56, 235);");
@@ -47,6 +51,16 @@ public:
 
 protected:
     void mousePressEvent(QMouseEvent*) override { close(); }
+    void closeEvent(QCloseEvent* e) override {
+        if (onClose_) {
+            onClose_();
+            onClose_ = nullptr;
+        }
+        QWidget::closeEvent(e);
+    }
+
+private:
+    std::function<void()> onClose_;
 };
 
 } // namespace
@@ -101,8 +115,11 @@ void HealthPage::setupUi() {
     auto* saveBtn = new QPushButton(QStringLiteral("\u4fdd\u5b58\u8bbe\u7f6e"), this); // 保存设置
     toggleBtn_ = new QPushButton(QStringLiteral("\u5f00\u59cb\u5de5\u4f5c\u5468\u671f"), this); // 开始工作周期
     toggleBtn_->setProperty("flatStyle", "secondary");
+    auto* stopRingBtn = new QPushButton(QStringLiteral("\u505c\u6b62\u54cd\u94c3"), this); // 停止响铃
+    stopRingBtn->setProperty("flatStyle", "danger");
     btnRow->addWidget(saveBtn);
     btnRow->addWidget(toggleBtn_);
+    btnRow->addWidget(stopRingBtn);
     btnRow->addStretch();
     root->addLayout(btnRow);
 
@@ -113,6 +130,9 @@ void HealthPage::setupUi() {
 
     connect(saveBtn, &QPushButton::clicked, this, &HealthPage::onSave);
     connect(toggleBtn_, &QPushButton::clicked, this, &HealthPage::onToggleSession);
+    connect(stopRingBtn, &QPushButton::clicked, this, [this]() {
+        ringtone_->stop();
+    });
 }
 
 void HealthPage::loadSettings() {
@@ -138,6 +158,7 @@ void HealthPage::onSave() {
 void HealthPage::onToggleSession() {
     if (sessionTimer_->isActive()) {
         sessionTimer_->stop();
+        ringtone_->stop();
         toggleBtn_->setText(QStringLiteral("\u5f00\u59cb\u5de5\u4f5c\u5468\u671f")); // 开始工作周期
         statusLabel_->setText(QStringLiteral("\u5df2\u505c\u6b62")); // 已停止
         return;
@@ -184,7 +205,9 @@ void HealthPage::showPhaseReminder(bool restPhase) {
     }
 
     if (settings_.displayMode == static_cast<int>(models::HealthDisplayMode::Fullscreen)) {
-        auto* overlay = new FullscreenReminder(msg);
+        auto* overlay = new FullscreenReminder(msg, [this]() {
+            ringtone_->stop(); // dismissing the overlay stops the ringtone
+        });
         overlay->showFullScreen();
     } else {
         auto* popup = new ReminderPopup(QStringLiteral("\u5065\u5eb7\u63d0\u9192"), msg, nullptr); // 健康提醒

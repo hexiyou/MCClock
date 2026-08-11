@@ -55,6 +55,10 @@ public:
 
     explicit StopwatchService(QObject* parent = nullptr);
 
+    // Process-wide shared instance so the GUI page and the HTTP API
+    // control the very same stopwatch.
+    static StopwatchService& instance();
+
     State state() const { return state_; }
     // Elapsed milliseconds (excluding current run segment if paused/stopped)
     qint64 elapsedMs() const;

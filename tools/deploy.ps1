@@ -59,7 +59,11 @@ if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
 Write-Host "[3/4] Copying sound resources ..."
 $soundsSrc = Join-Path $root "resources\sounds"
 if (-not (Test-Path $soundsSrc)) { throw "Missing sound resources: $soundsSrc" }
-Copy-Item $soundsSrc (Join-Path $deployDir "sounds") -Recurse -Force
+$soundsDst = Join-Path $deployDir "sounds"
+# Remove any stale copy first: Copy-Item would nest the source folder
+# inside an existing destination directory (sounds/sounds/...)
+if (Test-Path $soundsDst) { Remove-Item $soundsDst -Recurse -Force }
+Copy-Item $soundsSrc $soundsDst -Recurse -Force
 
 # ── 4. Zip package ──
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
