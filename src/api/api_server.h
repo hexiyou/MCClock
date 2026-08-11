@@ -6,8 +6,8 @@
 
 namespace mcclock::api {
 
-// HTTP API Server - runs in a separate thread
-// Disabled by default; configurable IP and port in global settings
+// HTTP API Server - runs cpp-httplib in a dedicated QThread.
+// Disabled by default; configurable IP and port in global settings.
 class ApiServer : public QObject {
     Q_OBJECT
 public:
@@ -30,8 +30,12 @@ signals:
     void serverStarted(const QString& address);
     void serverStopped();
     void errorOccurred(const QString& error);
+    // Emitted after any data modification so the GUI can reload the scheduler
+    void dataChanged();
 
 private:
+    class Worker;
+    Worker* worker_ = nullptr;
     QThread* thread_ = nullptr;
     bool running_ = false;
     QString bindIp_;

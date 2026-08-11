@@ -10,6 +10,10 @@ class Scheduler;
 class RingtoneManager;
 }
 
+namespace mcclock::api {
+class ApiServer;
+}
+
 namespace mcclock::gui {
 
 class NavigationBar;
@@ -48,6 +52,7 @@ private:
     void setupScheduler();
     void checkMissedAlarms();
     void setupDesktopClock();
+    void syncApiServer();
     QWidget* createPlaceholderPage(const QString& title);
     void saveClosePreference(int action, bool dontAskAgain);
 
@@ -58,6 +63,7 @@ private:
     DesktopClockWidget* desktopClock_ = nullptr;
     mcclock::services::Scheduler* scheduler_ = nullptr;
     mcclock::services::RingtoneManager* ringtone_ = nullptr;
+    mcclock::api::ApiServer* apiServer_ = nullptr;
     bool startMinimized_ = false;
     bool exitingFromTrayMenu_ = false;
 };

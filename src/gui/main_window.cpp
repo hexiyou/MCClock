@@ -18,6 +18,7 @@
 #include "core/services/ringtone_manager.h"
 #include "core/services/business_services.h"
 #include "core/dal/settings_manager.h"
+#include "api_server.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -42,6 +43,7 @@ MainWindow::MainWindow(QWidget* parent)
     setupTray();
     setupScheduler();
     setupDesktopClock();
+    syncApiServer();
 }
 
 MainWindow::~MainWindow() = default;
@@ -269,10 +271,35 @@ void MainWindow::setDesktopClockVisible(bool visible) {
 void MainWindow::openSettings() {
     SettingsDialog dlg(this);
     connect(&dlg, &SettingsDialog::settingsSaved, this, [this]() {
-        // P6: restart HTTP API server here if settings changed
-        Q_UNUSED(this);
+        syncApiServer();
     });
     dlg.exec();
+}
+
+void MainWindow::syncApiServer() {
+    auto& s = mcclock::dal::SettingsManager::instance();
+    bool enabled = s.httpApiEnabled();
+
+    if (!enabled) {
+        if (apiServer_ && apiServer_->isRunning()) {
+            apiServer_->stop();
+        }
+        return;
+    }
+
+    QString ip = s.httpApiBindIp();
+    int port = s.httpApiPort();
+
+    if (!apiServer_) {
+        apiServer_ = new mcclock::api::ApiServer(this);
+        connect(apiServer_, &mcclock::api::ApiServer::dataChanged,
+                scheduler_, &mcclock::services::Scheduler::reload);
+    }
+    // Restart to apply new ip/port
+    if (apiServer_->isRunning()) {
+        apiServer_->stop();
+    }
+    apiServer_->start(ip, port);
 }
 
 void MainWindow::saveClosePreference(int action, bool dontAskAgain) {
