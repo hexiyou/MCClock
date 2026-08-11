@@ -12,9 +12,14 @@ class DesktopClockWidget : public QWidget {
 public:
     explicit DesktopClockWidget(QWidget* parent = nullptr);
 
+signals:
+    void showMainWindowRequested();
+    void closeRequested();
+
 protected:
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
+    void contextMenuEvent(QContextMenuEvent* e) override;
 
 private:
     QLabel* timeLabel_ = nullptr;

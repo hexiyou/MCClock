@@ -4,6 +4,7 @@
 #include <QSystemTrayIcon>
 
 class QStackedWidget;
+class QAction;
 
 namespace mcclock::services {
 class Scheduler;
@@ -33,6 +34,7 @@ public:
 
     // Toggle the desktop floating clock (also persists the setting)
     void setDesktopClockVisible(bool visible);
+    bool isDesktopClockVisible() const;
 
     // Start minimized (boot auto-start mode)
     void setStartMinimized(bool v) { startMinimized_ = v; }
@@ -60,6 +62,8 @@ private:
     SidebarWidget* sidebar_ = nullptr;
     QStackedWidget* pages_ = nullptr;
     QSystemTrayIcon* trayIcon_ = nullptr;
+    QAction* clockToggleAction_ = nullptr;
+    QAction* noteToggleAction_ = nullptr;
     DesktopClockWidget* desktopClock_ = nullptr;
     mcclock::services::Scheduler* scheduler_ = nullptr;
     mcclock::services::RingtoneManager* ringtone_ = nullptr;

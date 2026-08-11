@@ -15,16 +15,24 @@ class SidebarWidget : public QWidget {
 public:
     explicit SidebarWidget(QWidget* parent = nullptr);
 
+    // Sticky note state accessors (used by the tray menu)
+    bool stickyNoteVisible() const;
+    void setStickyNoteVisible(bool visible);
+
+    // Sync the clock toggle button state (e.g. when toggled from elsewhere)
+    void setClockToggleChecked(bool checked);
+
 signals:
     void desktopClockToggled(bool visible);
 
 private:
     void openCalendar();
-    void openStickyNote();
+    void toggleStickyNote();
     void openTimeCalculator();
     void openSystemCalculator();
 
     QPushButton* clockToggleBtn_ = nullptr;
+    QPushButton* noteBtn_ = nullptr;
     StickyNoteWidget* note_ = nullptr;
 };
 

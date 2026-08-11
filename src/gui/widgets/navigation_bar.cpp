@@ -10,6 +10,7 @@ NavigationBar::NavigationBar(QWidget* parent)
     : QWidget(parent)
 {
     setObjectName("NavigationBar");
+    setAttribute(Qt::WA_StyledBackground, true);
     setFixedHeight(52);
 
     auto* layout = new QHBoxLayout(this);

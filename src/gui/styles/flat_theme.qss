@@ -17,12 +17,12 @@ QWidget {
 
 /* ── Navigation bar ── */
 #NavigationBar {
-    background-color: #1E88E5;
+    background-color: #1565C0;
 }
 
 #NavigationBar QPushButton {
     background: transparent;
-    color: #D6E8FA;
+    color: #FFFFFF;
     border: none;
     padding: 10px 14px;
     font-size: 13px;
@@ -30,12 +30,12 @@ QWidget {
 
 #NavigationBar QPushButton:hover {
     color: #FFFFFF;
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.15);
 }
 
 #NavigationBar QPushButton:checked {
     color: #FFFFFF;
-    background-color: rgba(255, 255, 255, 0.18);
+    background-color: #1E88E5;
     font-weight: bold;
 }
 
@@ -68,6 +68,11 @@ QPushButton[flatStyle="secondary"] {
 
 QPushButton[flatStyle="secondary"]:hover {
     background-color: #CFD8DC;
+}
+
+QPushButton[flatStyle="secondary"]:checked {
+    background-color: #1E88E5;
+    color: #FFFFFF;
 }
 
 QPushButton[flatStyle="danger"] {
@@ -124,7 +129,7 @@ QCheckBox::indicator:checked {
     border: 1px solid #1E88E5;
     border-radius: 3px;
     background: #1E88E5;
-    image: none;
+    image: url(:/icons/check.png);
 }
 
 QRadioButton::indicator:unchecked {

@@ -2,7 +2,10 @@
 #include "core/utils/platform_utils.h"
 
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QTextEdit>
+#include <QLabel>
+#include <QPushButton>
 #include <QMouseEvent>
 #include <QCloseEvent>
 #include <QFile>
@@ -24,15 +27,35 @@ StickyNoteWidget::StickyNoteWidget(QWidget* parent)
 {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
-    setFixedSize(260, 300);
+    setFixedSize(260, 320);
+    setStyleSheet("StickyNoteWidget { background: rgba(255, 249, 196, 240); border-radius: 8px; }");
 
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setContentsMargins(8, 6, 8, 8);
+    layout->setSpacing(4);
+
+    // Title bar: drag handle area + close button
+    auto* header = new QHBoxLayout();
+    header->setContentsMargins(4, 0, 0, 0);
+    header->setSpacing(0);
+    auto* title = new QLabel(QStringLiteral("\u4fbf\u7b7e"), this); // 便签
+    title->setStyleSheet("color: #8D6E63; font-size: 12px; font-weight: bold; background: transparent;");
+    header->addWidget(title);
+    header->addStretch();
+    auto* closeBtn = new QPushButton(QStringLiteral("\u2715"), this); // ✕
+    closeBtn->setFixedSize(22, 22);
+    closeBtn->setCursor(Qt::PointingHandCursor);
+    closeBtn->setStyleSheet("QPushButton { background: transparent; color: #8D6E63;"
+                            " border: none; border-radius: 4px; font-size: 13px; }"
+                            "QPushButton:hover { background: rgba(229, 57, 53, 0.85); color: #FFFFFF; }");
+    header->addWidget(closeBtn);
+    layout->addLayout(header);
+    connect(closeBtn, &QPushButton::clicked, this, &StickyNoteWidget::hide);
 
     editor_ = new QTextEdit(this);
     editor_->setPlaceholderText(QStringLiteral("\u5728\u8fd9\u91cc\u8bb0\u5f55\u4fbf\u7b7e...")); // 在这里记录便签...
     editor_->setStyleSheet(
-        "QTextEdit { background: rgba(255, 249, 196, 235); color: #5D4037;"
+        "QTextEdit { background: transparent; color: #5D4037;"
         " border: none; font-size: 14px; }");
     layout->addWidget(editor_);
 
@@ -83,13 +106,29 @@ void StickyNoteWidget::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void StickyNoteWidget::mouseReleaseEvent(QMouseEvent* e) {
-    dragging_ = false;
+    if (dragging_) {
+        dragging_ = false;
+        save();
+        e->accept();
+        return;
+    }
     QWidget::mouseReleaseEvent(e);
 }
 
 void StickyNoteWidget::closeEvent(QCloseEvent* e) {
     save();
     QWidget::closeEvent(e);
+}
+
+void StickyNoteWidget::showEvent(QShowEvent* e) {
+    QWidget::showEvent(e);
+    emit visibilityChanged(true);
+}
+
+void StickyNoteWidget::hideEvent(QHideEvent* e) {
+    save();
+    QWidget::hideEvent(e);
+    emit visibilityChanged(false);
 }
 
 } // namespace mcclock::gui

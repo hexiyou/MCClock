@@ -14,11 +14,16 @@ class StickyNoteWidget : public QWidget {
 public:
     explicit StickyNoteWidget(QWidget* parent = nullptr);
 
+signals:
+    void visibilityChanged(bool visible);
+
 protected:
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
     void mouseReleaseEvent(QMouseEvent* e) override;
     void closeEvent(QCloseEvent* e) override;
+    void showEvent(QShowEvent* e) override;
+    void hideEvent(QHideEvent* e) override;
 
 private:
     void load();

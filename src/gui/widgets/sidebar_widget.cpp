@@ -32,7 +32,8 @@ SidebarWidget::SidebarWidget(QWidget* parent)
     };
 
     auto* calendarBtn = makeBtn(QStringLiteral("\u65e5\u5386"));         // 日历
-    auto* noteBtn = makeBtn(QStringLiteral("\u4fbf\u7b7e"));            // 便签
+    noteBtn_ = makeBtn(QStringLiteral("\u4fbf\u7b7e"));                  // 便签
+    noteBtn_->setCheckable(true);
     auto* timeCalcBtn = makeBtn(QStringLiteral("\u65f6\u95f4\n\u8ba1\u7b97")); // 时间计算
     auto* sysCalcBtn = makeBtn(QStringLiteral("\u8ba1\u7b97\u5668"));   // 计算器
     clockToggleBtn_ = makeBtn(QStringLiteral("\u684c\u9762\n\u65f6\u949f"));   // 桌面时钟
@@ -40,10 +41,35 @@ SidebarWidget::SidebarWidget(QWidget* parent)
     layout->addStretch();
 
     connect(calendarBtn, &QPushButton::clicked, this, &SidebarWidget::openCalendar);
-    connect(noteBtn, &QPushButton::clicked, this, &SidebarWidget::openStickyNote);
+    connect(noteBtn_, &QPushButton::clicked, this, &SidebarWidget::toggleStickyNote);
     connect(timeCalcBtn, &QPushButton::clicked, this, &SidebarWidget::openTimeCalculator);
     connect(sysCalcBtn, &QPushButton::clicked, this, &SidebarWidget::openSystemCalculator);
     connect(clockToggleBtn_, &QPushButton::toggled, this, &SidebarWidget::desktopClockToggled);
+}
+
+bool SidebarWidget::stickyNoteVisible() const {
+    return note_ && note_->isVisible();
+}
+
+void SidebarWidget::setStickyNoteVisible(bool visible) {
+    if (!note_) {
+        note_ = new StickyNoteWidget(nullptr);
+        connect(note_, &StickyNoteWidget::visibilityChanged, this,
+                [this](bool v) { noteBtn_->setChecked(v); });
+    }
+    if (visible) {
+        note_->show();
+        note_->raise();
+        note_->activateWindow();
+    } else {
+        note_->hide();
+    }
+}
+
+void SidebarWidget::setClockToggleChecked(bool checked) {
+    if (clockToggleBtn_->isChecked() == checked) return;
+    const QSignalBlocker blocker(clockToggleBtn_);
+    clockToggleBtn_->setChecked(checked);
 }
 
 void SidebarWidget::openCalendar() {
@@ -66,14 +92,8 @@ void SidebarWidget::openCalendar() {
     dlg.exec();
 }
 
-void SidebarWidget::openStickyNote() {
-    if (!note_) {
-        note_ = new StickyNoteWidget(nullptr);
-        connect(note_, &QObject::destroyed, this, [this]() { note_ = nullptr; });
-    }
-    note_->show();
-    note_->raise();
-    note_->activateWindow();
+void SidebarWidget::toggleStickyNote() {
+    setStickyNoteVisible(!stickyNoteVisible());
 }
 
 void SidebarWidget::openTimeCalculator() {

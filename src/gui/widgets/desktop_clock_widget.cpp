@@ -8,6 +8,8 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QDateTime>
+#include <QMenu>
+#include <QContextMenuEvent>
 
 namespace mcclock::gui {
 
@@ -68,6 +70,16 @@ void DesktopClockWidget::mouseMoveEvent(QMouseEvent* e) {
         move(e->globalPosition().toPoint() - dragPos_);
         e->accept();
     }
+}
+
+void DesktopClockWidget::contextMenuEvent(QContextMenuEvent* e) {
+    QMenu menu;
+    auto* showMain = menu.addAction(QStringLiteral("\u663e\u793a\u8f6f\u4ef6\u4e3b\u754c\u9762")); // 显示软件主界面
+    auto* closeClock = menu.addAction(QStringLiteral("\u5173\u95ed\u684c\u9762\u65f6\u949f"));   // 关闭桌面时钟
+    connect(showMain, &QAction::triggered, this, &DesktopClockWidget::showMainWindowRequested);
+    connect(closeClock, &QAction::triggered, this, &DesktopClockWidget::closeRequested);
+    menu.exec(e->globalPos());
+    e->accept();
 }
 
 HourlyChimePopup::HourlyChimePopup(int hour, QWidget* parent)

@@ -126,6 +126,39 @@ void MainWindow::setupTray() {
     auto* showAction = menu->addAction(QStringLiteral("\u663e\u793a\u4e3b\u754c\u9762")); // 显示主界面
     connect(showAction, &QAction::triggered, this, &MainWindow::showFromTray);
     menu->addSeparator();
+
+    clockToggleAction_ = menu->addAction(QString());
+    clockToggleAction_->setCheckable(true);
+    connect(clockToggleAction_, &QAction::triggered, this, [this]() {
+        setDesktopClockVisible(!isDesktopClockVisible());
+    });
+
+    noteToggleAction_ = menu->addAction(QString());
+    noteToggleAction_->setCheckable(true);
+    connect(noteToggleAction_, &QAction::triggered, this, [this]() {
+        sidebar_->setStickyNoteVisible(!sidebar_->stickyNoteVisible());
+    });
+
+    auto* settingsAction = menu->addAction(QStringLiteral("\u6253\u5f00\u5168\u5c40\u8bbe\u7f6e")); // 打开全局设置
+    connect(settingsAction, &QAction::triggered, this, &MainWindow::openSettings);
+
+    connect(menu, &QMenu::aboutToShow, this, [this]() {
+        bool clockOn = isDesktopClockVisible();
+        // 打开桌面时钟 / 关闭桌面时钟
+        clockToggleAction_->setText(clockOn
+            ? QStringLiteral("\u5173\u95ed\u684c\u9762\u65f6\u949f")
+            : QStringLiteral("\u6253\u5f00\u684c\u9762\u65f6\u949f"));
+        clockToggleAction_->setChecked(clockOn);
+
+        bool noteOn = sidebar_->stickyNoteVisible();
+        // 打开便签 / 关闭便签
+        noteToggleAction_->setText(noteOn
+            ? QStringLiteral("\u5173\u95ed\u4fbf\u7b7e")
+            : QStringLiteral("\u6253\u5f00\u4fbf\u7b7e"));
+        noteToggleAction_->setChecked(noteOn);
+    });
+
+    menu->addSeparator();
     auto* exitAction = menu->addAction(QStringLiteral("\u9000\u51fa")); // 退出
     connect(exitAction, &QAction::triggered, this, [this]() {
         exitingFromTrayMenu_ = true;
@@ -254,16 +287,27 @@ void MainWindow::setupDesktopClock() {
     }
 }
 
+bool MainWindow::isDesktopClockVisible() const {
+    return desktopClock_ && desktopClock_->isVisible();
+}
+
 void MainWindow::setDesktopClockVisible(bool visible) {
     auto& s = mcclock::dal::SettingsManager::instance();
     if (visible) {
         if (!desktopClock_) {
             desktopClock_ = new DesktopClockWidget(nullptr);
+            connect(desktopClock_, &DesktopClockWidget::showMainWindowRequested,
+                    this, &MainWindow::showFromTray);
+            connect(desktopClock_, &DesktopClockWidget::closeRequested, this, [this]() {
+                setDesktopClockVisible(false);
+            });
         }
         desktopClock_->show();
+        desktopClock_->raise();
     } else if (desktopClock_) {
         desktopClock_->hide();
     }
+    sidebar_->setClockToggleChecked(visible);
     s.setDesktopClock(visible);
     s.save();
 }
