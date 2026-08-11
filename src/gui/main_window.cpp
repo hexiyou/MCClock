@@ -1,6 +1,8 @@
 #include "main_window.h"
 #include "widgets/navigation_bar.h"
 #include "widgets/reminder_popup.h"
+#include "widgets/sidebar_widget.h"
+#include "widgets/desktop_clock_widget.h"
 #include "dialogs/close_confirm_dialog.h"
 #include "dialogs/settings_dialog.h"
 #include "pages/home_page.h"
@@ -39,6 +41,7 @@ MainWindow::MainWindow(QWidget* parent)
     setupUi();
     setupTray();
     setupScheduler();
+    setupDesktopClock();
 }
 
 MainWindow::~MainWindow() = default;
@@ -80,7 +83,17 @@ void MainWindow::setupUi() {
         pages_->addWidget(new StopwatchPage(this));
         pages_->addWidget(new HealthPage(this));
     }
-    root->addWidget(pages_, 1);
+
+    sidebar_ = new SidebarWidget(central);
+    connect(sidebar_, &SidebarWidget::desktopClockToggled,
+            this, &MainWindow::setDesktopClockVisible);
+
+    auto* body = new QHBoxLayout();
+    body->setContentsMargins(0, 0, 0, 0);
+    body->setSpacing(0);
+    body->addWidget(pages_, 1);
+    body->addWidget(sidebar_);
+    root->addLayout(body, 1);
 
     setCentralWidget(central);
 
@@ -225,11 +238,32 @@ void MainWindow::onAlarmTriggered() {
 }
 
 void MainWindow::onHourlyChime(int hour) {
-    // P5: HourlyChimePopup floating window; for now tray message
-    Q_UNUSED(hour);
+    // Floating popup at top of screen
+    new HourlyChimePopup(hour, nullptr);
     trayIcon_->showMessage(QStringLiteral("\u6574\u70b9\u62a5\u65f6"), // 整点报时
         QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour),
-        QSystemTrayIcon::Information, 5000);
+        QSystemTrayIcon::Information, 3000);
+}
+
+void MainWindow::setupDesktopClock() {
+    auto& s = mcclock::dal::SettingsManager::instance();
+    if (s.desktopClock()) {
+        setDesktopClockVisible(true);
+    }
+}
+
+void MainWindow::setDesktopClockVisible(bool visible) {
+    auto& s = mcclock::dal::SettingsManager::instance();
+    if (visible) {
+        if (!desktopClock_) {
+            desktopClock_ = new DesktopClockWidget(nullptr);
+        }
+        desktopClock_->show();
+    } else if (desktopClock_) {
+        desktopClock_->hide();
+    }
+    s.setDesktopClock(visible);
+    s.save();
 }
 
 void MainWindow::openSettings() {

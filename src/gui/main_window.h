@@ -13,6 +13,8 @@ class RingtoneManager;
 namespace mcclock::gui {
 
 class NavigationBar;
+class SidebarWidget;
+class DesktopClockWidget;
 
 // Main application window (740x480): navigation bar + stacked pages.
 // Pages are placeholders in P3; replaced by real feature pages in P4.
@@ -24,6 +26,9 @@ public:
 
     // Show window restored from tray
     void showFromTray();
+
+    // Toggle the desktop floating clock (also persists the setting)
+    void setDesktopClockVisible(bool visible);
 
     // Start minimized (boot auto-start mode)
     void setStartMinimized(bool v) { startMinimized_ = v; }
@@ -42,12 +47,15 @@ private:
     void setupTray();
     void setupScheduler();
     void checkMissedAlarms();
+    void setupDesktopClock();
     QWidget* createPlaceholderPage(const QString& title);
     void saveClosePreference(int action, bool dontAskAgain);
 
     NavigationBar* navBar_ = nullptr;
+    SidebarWidget* sidebar_ = nullptr;
     QStackedWidget* pages_ = nullptr;
     QSystemTrayIcon* trayIcon_ = nullptr;
+    DesktopClockWidget* desktopClock_ = nullptr;
     mcclock::services::Scheduler* scheduler_ = nullptr;
     mcclock::services::RingtoneManager* ringtone_ = nullptr;
     bool startMinimized_ = false;
