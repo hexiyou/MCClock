@@ -16,6 +16,10 @@ void ThemeManager::applyTheme(QApplication& app) {
 }
 
 QIcon ThemeManager::appIcon() {
+    // Prefer the bundled icon resource
+    QIcon res(":/icons/app.png");
+    if (!res.isNull()) return res;
+
     QPixmap pix(64, 64);
     pix.fill(Qt::transparent);
     QPainter p(&pix);

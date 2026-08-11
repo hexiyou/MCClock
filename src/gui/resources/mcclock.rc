@@ -1,0 +1,30 @@
+// Windows resource script: application icon + version info
+1 ICON "icons/app.ico"
+
+#include <windows.h>
+
+1 VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+FILEOS          VOS__WINDOWS32
+FILETYPE        VFT_APP
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "CompanyName",      "MCClock"
+            VALUE "FileDescription",  "MCClock - Meng Chang Alarm Clock"
+            VALUE "FileVersion",      "1.0.0.0"
+            VALUE "InternalName",     "MCClock"
+            VALUE "OriginalFilename", "MCClock.exe"
+            VALUE "ProductName",      "MCClock"
+            VALUE "ProductVersion",   "1.0.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END

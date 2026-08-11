@@ -741,7 +741,7 @@ int handleSettings(const QString& action, const QStringList& args, bool jsonOutp
 
 int handleSystem(const QString& action, QCommandLineParser& p,
                  const QCommandLineOption& yesOpt, const QCommandLineOption& optionOpt,
-                 bool jsonOutput) {
+                 const QCommandLineOption& fileOpt, bool jsonOutput) {
     if (action.isEmpty() || action == "info") {
         QJsonObject info;
         info["app"] = "MCClock";
@@ -789,6 +789,64 @@ int handleSystem(const QString& action, QCommandLineParser& p,
         out << "Executing " << shutdownOptionToName(option) << "...\n";
         return PlatformUtils::executeShutdown(option) ? 0 : 1;
     }
+    if (action == "backup") {
+        QString file = p.isSet(fileOpt)
+            ? p.value(fileOpt)
+            : QStringLiteral("mcclock-backup-%1.zip")
+                  .arg(QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss"));
+        QString dataDir = PlatformUtils::appDataPath();
+
+        // Flush the WAL so the db file is self-contained
+        mcclock::dal::Database::instance().execute("PRAGMA wal_checkpoint(TRUNCATE);");
+
+        QStringList files;
+        for (const QString& name : {QStringLiteral("mcclock.db"), QStringLiteral("settings.json")}) {
+            if (QFile::exists(dataDir + "/" + name)) files << name;
+        }
+        if (files.isEmpty()) { errStream << "Error: no data to back up\n"; return 1; }
+
+        QProcess tar;
+        tar.start("tar.exe", QStringList{"-a", "-c", "-f", QDir::toNativeSeparators(file),
+                                         "-C", QDir::toNativeSeparators(dataDir)} + files);
+        tar.waitForFinished(30000);
+        if (tar.exitCode() != 0) {
+            errStream << "Error: backup failed: " << tar.readAllStandardError() << "\n";
+            return 1;
+        }
+        out << "Backup created: " << file << "\n";
+        return 0;
+    }
+    if (action == "restore") {
+        if (!p.isSet(fileOpt)) { errStream << "Error: --file is required\n"; return 1; }
+        if (!p.isSet(yesOpt)) {
+            errStream << "Error: restore overwrites current data, requires --yes confirmation\n";
+            return 1;
+        }
+        QString file = p.value(fileOpt);
+        if (!QFile::exists(file)) { errStream << "Error: file not found: " << file << "\n"; return 1; }
+        QString dataDir = PlatformUtils::appDataPath();
+
+        // Close the database before overwriting it
+        mcclock::dal::Database::instance().close();
+
+        QProcess tar;
+        tar.start("tar.exe", QStringList{"-x", "-f", QDir::toNativeSeparators(file),
+                                         "-C", QDir::toNativeSeparators(dataDir)});
+        tar.waitForFinished(30000);
+        if (tar.exitCode() != 0) {
+            errStream << "Error: restore failed: " << tar.readAllStandardError() << "\n";
+            return 1;
+        }
+
+        // Reopen the restored database
+        if (!mcclock::dal::Database::instance().initialize(PlatformUtils::databasePath())) {
+            errStream << "Error: restored database cannot be opened\n";
+            return 1;
+        }
+        SettingsManager::instance().load(PlatformUtils::settingsPath());
+        out << "Restore completed from: " << file << "\n";
+        return 0;
+    }
     errStream << "Error: unknown system action: " << action << "\n";
     return 1;
 }
@@ -818,7 +876,8 @@ void printUsage() {
     out << "  shutdown:   run (--yes --uuid)\n";
     out << "  run:        run (--uuid)\n";
     out << "  settings:   get <path>, set <path> <value>, list\n";
-    out << "  system:     info, autostart on|off, shutdown/restart/logoff (--yes)\n\n";
+    out << "  system:     info, autostart on|off, shutdown/restart/logoff (--yes),\n";
+    out << "              backup [--file x.zip], restore --file x.zip --yes\n\n";
     out << "Options:\n";
     out << "  --json          JSON output format\n";
     out << "  --uuid <uuid>   Item UUID\n";
@@ -950,7 +1009,7 @@ int main(int argc, char* argv[]) {
     } else if (module == "settings") {
         rc = handleSettings(action, args, jsonOutput);
     } else if (module == "system") {
-        rc = handleSystem(action, parser, yesOpt, optionOpt, jsonOutput);
+        rc = handleSystem(action, parser, yesOpt, optionOpt, fileOpt, jsonOutput);
     } else {
         errStream << "Error: unknown module: " << module << "\n\n";
         printUsage();
