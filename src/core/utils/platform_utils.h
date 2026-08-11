@@ -45,6 +45,15 @@ public:
                       QSettings::NativeFormat);
         if (enable) {
             QString exePath = QCoreApplication::applicationFilePath();
+            // When called from the CLI executable, auto-start should still
+            // launch the GUI application
+            if (exePath.contains("-CLI")) {
+                QString guiPath = exePath;
+                guiPath.replace("MCClock-CLI.exe", "MCClock.exe");
+                if (QFile::exists(guiPath)) {
+                    exePath = guiPath;
+                }
+            }
             reg.setValue("MCClock", "\"" + exePath + "\" --minimized");
         } else {
             reg.remove("MCClock");
