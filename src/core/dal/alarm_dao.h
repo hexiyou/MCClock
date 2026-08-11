@@ -4,6 +4,8 @@
 #include <QString>
 #include "core/models/all_models.h"
 
+struct sqlite3_stmt;
+
 namespace mcclock::dal {
 
 class AlarmDao {
@@ -28,7 +30,7 @@ public:
     QList<models::Alarm> findDeleted();
 
 private:
-    models::Alarm rowToAlarm(struct sqlite3_stmt* stmt);
+    models::Alarm rowToAlarm(sqlite3_stmt* stmt);
 };
 
 class AlarmGroupDao {
@@ -39,7 +41,7 @@ public:
     models::AlarmGroup findByUuid(const QString& uuid);
     QList<models::AlarmGroup> findAll();
 private:
-    models::AlarmGroup rowToGroup(struct sqlite3_stmt* stmt);
+    models::AlarmGroup rowToGroup(sqlite3_stmt* stmt);
 };
 
 } // namespace mcclock::dal

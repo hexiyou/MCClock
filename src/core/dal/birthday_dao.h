@@ -4,6 +4,8 @@
 #include <QString>
 #include "core/models/all_models.h"
 
+struct sqlite3_stmt;
+
 namespace mcclock::dal {
 
 class BirthdayDao {
@@ -15,7 +17,7 @@ public:
     QList<models::Birthday> findAll();
     QList<models::Birthday> findUnsynced();
 private:
-    models::Birthday rowToBirthday(struct sqlite3_stmt* stmt);
+    models::Birthday rowToBirthday(sqlite3_stmt* stmt);
 };
 
 } // namespace mcclock::dal

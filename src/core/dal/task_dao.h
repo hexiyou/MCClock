@@ -4,6 +4,8 @@
 #include <QString>
 #include "core/models/all_models.h"
 
+struct sqlite3_stmt;
+
 namespace mcclock::dal {
 
 class ShutdownTaskDao {
@@ -15,7 +17,7 @@ public:
     QList<models::ShutdownTask> findAll();
     QList<models::ShutdownTask> findUnsynced();
 private:
-    models::ShutdownTask rowToTask(struct sqlite3_stmt* stmt);
+    models::ShutdownTask rowToTask(sqlite3_stmt* stmt);
 };
 
 class RunProgramTaskDao {
@@ -27,7 +29,7 @@ public:
     QList<models::RunProgramTask> findAll();
     QList<models::RunProgramTask> findUnsynced();
 private:
-    models::RunProgramTask rowToTask(struct sqlite3_stmt* stmt);
+    models::RunProgramTask rowToTask(sqlite3_stmt* stmt);
 };
 
 } // namespace mcclock::dal

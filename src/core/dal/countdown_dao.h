@@ -4,6 +4,8 @@
 #include <QString>
 #include "core/models/all_models.h"
 
+struct sqlite3_stmt;
+
 namespace mcclock::dal {
 
 class CountdownDao {
@@ -15,7 +17,7 @@ public:
     QList<models::Countdown> findAll();
     QList<models::Countdown> findUnsynced();
 private:
-    models::Countdown rowToCountdown(struct sqlite3_stmt* stmt);
+    models::Countdown rowToCountdown(sqlite3_stmt* stmt);
 };
 
 class HealthSettingsDao {
@@ -26,7 +28,7 @@ public:
     QList<models::HealthSettings> findAll();
     QList<models::HealthSettings> findUnsynced();
 private:
-    models::HealthSettings rowToSettings(struct sqlite3_stmt* stmt);
+    models::HealthSettings rowToSettings(sqlite3_stmt* stmt);
 };
 
 } // namespace mcclock::dal
