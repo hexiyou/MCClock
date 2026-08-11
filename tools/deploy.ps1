@@ -16,7 +16,8 @@ $ErrorActionPreference = "Stop"
 
 $root     = Split-Path $PSScriptRoot -Parent
 $buildDir = Join-Path $root "build"
-$binDir   = Join-Path $buildDir "bin"
+# MSVC multi-config generators place binaries under bin\<Configuration>
+$binDir   = Join-Path $buildDir "bin\$Configuration"
 $deployDir = Join-Path $root "deploy"
 $cmake    = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
 $qtBin    = "C:\Qt\6.8.3\msvc2022_64\bin"
