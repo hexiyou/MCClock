@@ -55,6 +55,13 @@ target_link_libraries(mcclock-core PUBLIC
     Qt6::Network
 )
 
+# Sound resource directory: development fallback when running without deployment.
+# Deployed builds find sounds next to the executable (<exe dir>/sounds).
+file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/resources/sounds" MCCLOCK_SOUNDS_SRC_DIR)
+target_compile_definitions(mcclock-core PRIVATE
+    MCCLOCK_SOUNDS_DIR="${MCCLOCK_SOUNDS_SRC_DIR}"
+)
+
 # Windows-specific libraries
 if(WIN32)
     target_link_libraries(mcclock-core PUBLIC

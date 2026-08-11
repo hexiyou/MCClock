@@ -4,6 +4,8 @@
 #include <QAudioOutput>
 #include <QTimer>
 #include <QFile>
+#include <QDir>
+#include <QCoreApplication>
 #include <QRandomGenerator>
 
 namespace mcclock::services {
@@ -33,6 +35,23 @@ RingtoneManager::RingtoneManager(QObject* parent)
 
 RingtoneManager::~RingtoneManager() {
     stop();
+    stopVoice();
+}
+
+QString RingtoneManager::soundsDir() {
+    // Deployment layout: sounds/ folder next to the executable
+    const QDir deployed(QCoreApplication::applicationDirPath() + "/sounds");
+    if (deployed.exists()) {
+        return deployed.absolutePath();
+    }
+#ifdef MCCLOCK_SOUNDS_DIR
+    // Development fallback: source tree resources/sounds
+    const QDir devDir(QStringLiteral(MCCLOCK_SOUNDS_DIR));
+    if (devDir.exists()) {
+        return devDir.absolutePath();
+    }
+#endif
+    return QString();
 }
 
 QString RingtoneManager::resolveRingtonePath(int ringtoneId, const QString& customPath) {
@@ -44,7 +63,9 @@ QString RingtoneManager::resolveRingtonePath(int ringtoneId, const QString& cust
         id = QRandomGenerator::global()->bounded(1, 7);
     }
     if (id < 1 || id > 6) id = 1;
-    return QString(":/sounds/ringtone%1.mp3").arg(id);
+    const QString dir = soundsDir();
+    if (dir.isEmpty()) return QString();
+    return dir + QStringLiteral("/\u94c3\u58f0%1.mp3").arg(id); // 铃声N.mp3
 }
 
 QString RingtoneManager::builtinName(int ringtoneId) {
@@ -74,17 +95,13 @@ void RingtoneManager::play(int ringtoneId, const QString& customPath, int ringMo
     }
 
     QString path = resolveRingtonePath(ringtoneId, customPath);
-    if (path.startsWith(":/")) {
-        if (!QFile::exists(path)) {
-            // Resource not bundled yet - nothing to play
-            return;
-        }
-    } else if (!QFile::exists(path)) {
+    if (path.isEmpty() || !QFile::exists(path)) {
+        // Sound file missing - nothing to play
         return;
     }
 
     audioOutput_->setVolume(qBound(0, volumePercent, 100) / 100.0f);
-    player_->setSource(QUrl(path));
+    player_->setSource(path.startsWith(":/") ? QUrl(path) : QUrl::fromLocalFile(path));
 
     switch (ringMode) {
     case 0: // AnnounceTime: brief ring (play 3 loops)
@@ -119,6 +136,86 @@ void RingtoneManager::stop() {
     if (playing_) {
         playing_ = false;
         emit playbackStopped();
+    }
+}
+
+void RingtoneManager::speakTime(int hour, int minute, int volumePercent) {
+    const QString dir = soundsDir();
+    if (dir.isEmpty()) return;
+
+    auto exists = [&dir](const QString& name) {
+        return QFile::exists(dir + "/" + name) ? dir + "/" + name : QString();
+    };
+
+    // Build the announcement sequence:
+    //   timenow -> am/pm/em -> hour(12h) -> point -> [minute digits -> MIN]
+    QStringList queue;
+    auto enqueue = [&](const QString& name) {
+        const QString p = exists(name);
+        if (!p.isEmpty()) queue << p;
+    };
+
+    enqueue("timenow.wav"); // 现在时间是
+    if (hour >= 5 && hour <= 11) {
+        enqueue("am.wav"); // 早上
+    } else if (hour >= 12 && hour <= 17) {
+        enqueue("pm.wav"); // 下午
+    } else {
+        enqueue("em.wav"); // 晚上
+    }
+
+    int h12 = hour % 12;
+    if (h12 == 0) h12 = 12;
+    enqueue(QString("%1.wav").arg(h12));
+    enqueue("point.wav"); // 点
+
+    if (minute > 0) {
+        if (minute < 10) {
+            enqueue(QString("%1.wav").arg(minute));
+        } else if (minute < 20) {
+            enqueue("10.wav");
+            if (minute > 10) enqueue(QString("%1.wav").arg(minute - 10));
+        } else {
+            enqueue(QString("%1.wav").arg(minute / 10 * 10)); // 20/30/40/50
+            if (minute % 10 > 0) enqueue(QString("%1.wav").arg(minute % 10));
+        }
+        enqueue("MIN.wav"); // 分
+    }
+
+    if (queue.isEmpty()) return;
+    stopVoice();
+    voiceQueue_ = queue;
+    voiceIndex_ = 0;
+    voiceVolume_ = qBound(0, volumePercent, 100);
+    playNextVoice();
+}
+
+void RingtoneManager::playNextVoice() {
+    if (voiceIndex_ >= voiceQueue_.size()) {
+        return; // sequence finished
+    }
+    if (!voicePlayer_) {
+        voicePlayer_ = new QMediaPlayer(this);
+        voiceAudio_ = new QAudioOutput(this);
+        voicePlayer_->setAudioOutput(voiceAudio_);
+        connect(voicePlayer_, &QMediaPlayer::mediaStatusChanged, this,
+                [this](QMediaPlayer::MediaStatus status) {
+            if (status == QMediaPlayer::EndOfMedia) {
+                ++voiceIndex_;
+                playNextVoice();
+            }
+        });
+    }
+    voiceAudio_->setVolume(voiceVolume_ / 100.0f);
+    voicePlayer_->setSource(QUrl::fromLocalFile(voiceQueue_.at(voiceIndex_)));
+    voicePlayer_->play();
+}
+
+void RingtoneManager::stopVoice() {
+    voiceQueue_.clear();
+    voiceIndex_ = 0;
+    if (voicePlayer_) {
+        voicePlayer_->stop();
     }
 }
 

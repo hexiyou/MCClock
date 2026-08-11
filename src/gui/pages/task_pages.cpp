@@ -1,6 +1,7 @@
 #include "task_pages.h"
 #include "core/services/business_services.h"
 #include "core/services/cycle_utils.h"
+#include "core/utils/platform_utils.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -10,6 +11,7 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QTimeEdit>
+#include <QDateEdit>
 #include <QSpinBox>
 #include <QLineEdit>
 #include <QCheckBox>
@@ -19,6 +21,7 @@
 #include <QMessageBox>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QColor>
 
 namespace mcclock::gui {
 
@@ -30,6 +33,7 @@ namespace {
 
 struct CycleEditor {
     QComboBox* combo = nullptr;
+    QDateEdit* onceDateEdit = nullptr;   // date for "run once" mode
     QLineEdit* weeklineEdit = nullptr; // e.g. "1,3,5" (1=Mon..7=Sun)
 
     QWidget* create(QWidget* parent) {
@@ -41,11 +45,16 @@ struct CycleEditor {
         combo->addItem(QStringLiteral("\u6bcf\u5929"), 1);                   // 每天
         combo->addItem(QStringLiteral("\u6bcf\u5468"), 2);                   // 每周
         layout->addWidget(combo);
+        onceDateEdit = new QDateEdit(w);
+        onceDateEdit->setDisplayFormat("yyyy-MM-dd");
+        onceDateEdit->setDate(QDate::currentDate());
+        layout->addWidget(onceDateEdit);
         weeklineEdit = new QLineEdit(w);
         weeklineEdit->setPlaceholderText(QStringLiteral("\u661f\u671f\uff0c\u5982 1,3,5\uff081=\u5468\u4e00\uff09")); // 星期，如 1,3,5（1=周一）
         weeklineEdit->setVisible(false);
         layout->addWidget(weeklineEdit, 1);
         QObject::connect(combo, &QComboBox::currentIndexChanged, w, [this](int idx) {
+            onceDateEdit->setVisible(idx == 0);
             weeklineEdit->setVisible(idx == 2);
         });
         return w;
@@ -54,6 +63,8 @@ struct CycleEditor {
     void load(int cycleMode, const QString& cycleData) {
         combo->setCurrentIndex(cycleMode >= 0 && cycleMode <= 2 ? cycleMode : 0);
         QJsonObject cd = QJsonDocument::fromJson(cycleData.toUtf8()).object();
+        QDate d = QDate::fromString(cd.value("date").toString(), "yyyy-MM-dd");
+        onceDateEdit->setDate(d.isValid() ? d : QDate::currentDate());
         QStringList parts;
         for (const auto& v : cd.value("weekdays").toArray()) parts << QString::number(v.toInt());
         weeklineEdit->setText(parts.join(","));
@@ -62,7 +73,9 @@ struct CycleEditor {
     QString buildCycleData(int& mode) const {
         mode = combo->currentData().toInt();
         QJsonObject cd;
-        if (mode == 2) {
+        if (mode == 0) {
+            cd["date"] = onceDateEdit->date().toString("yyyy-MM-dd");
+        } else if (mode == 2) {
             QJsonArray arr;
             for (const auto& part : weeklineEdit->text().split(',', Qt::SkipEmptyParts)) {
                 bool ok = false;
@@ -333,11 +346,12 @@ void RunProgramPage::setupUi() {
     root->addLayout(toolbar);
 
     table_ = new QTableWidget(this);
-    table_->setColumnCount(4);
+    table_->setColumnCount(5);
     table_->setHorizontalHeaderLabels({
         QStringLiteral("\u65f6\u95f4"),       // 时间
         QStringLiteral("\u91cd\u590d"),       // 重复
         QStringLiteral("\u7a0b\u5e8f/\u7f51\u5740"), // 程序/网址
+        QStringLiteral("\u72b6\u6001"),       // 状态
         QStringLiteral("\u5907\u6ce8")        // 备注
     });
     table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
@@ -364,7 +378,12 @@ void RunProgramPage::refresh() {
         table_->setItem(row, 0, new QTableWidgetItem(t.time));
         table_->setItem(row, 1, new QTableWidgetItem(CycleEditor::describe(t.cycleMode, t.cycleData)));
         table_->setItem(row, 2, new QTableWidgetItem(t.programPath));
-        table_->setItem(row, 3, new QTableWidgetItem(t.label));
+        auto* statusItem = new QTableWidgetItem(t.enabled
+            ? QStringLiteral("\u542f\u7528")   // 启用
+            : QStringLiteral("\u7981\u7528")); // 禁用
+        if (!t.enabled) statusItem->setForeground(QColor("#90A4AE"));
+        table_->setItem(row, 3, statusItem);
+        table_->setItem(row, 4, new QTableWidgetItem(t.label));
         table_->item(row, 0)->setData(Qt::UserRole, t.uuid);
     }
 }
@@ -403,10 +422,15 @@ bool runProgramForm(QWidget* parent, mcclock::models::RunProgramTask& t, bool is
     });
 
     auto* argsEdit = new QLineEdit(t.arguments, &dlg);
+    argsEdit->setPlaceholderText(QStringLiteral("\u652f\u6301\u73af\u5883\u53d8\u91cf\uff0c\u5982 %COMSPEC%")); // 支持环境变量，如 %COMSPEC%
     layout->addRow(QStringLiteral("\u53c2\u6570\uff1a"), argsEdit); // 参数：
 
     auto* labelEdit = new QLineEdit(t.label, &dlg);
     layout->addRow(QStringLiteral("\u5907\u6ce8\uff1a"), labelEdit); // 备注：
+
+    auto* enabledCheck = new QCheckBox(QStringLiteral("\u542f\u7528\u8be5\u4efb\u52a1"), &dlg); // 启用该任务
+    enabledCheck->setChecked(isNew ? true : t.enabled);
+    layout->addRow(QStringLiteral("\u72b6\u6001\uff1a"), enabledCheck); // 状态：
 
     auto* btnRow = new QHBoxLayout();
     auto* okBtn = new QPushButton(QStringLiteral("\u4fdd\u5b58"), &dlg);
@@ -423,8 +447,9 @@ bool runProgramForm(QWidget* parent, mcclock::models::RunProgramTask& t, bool is
 
     QString path = pathEdit->text().trimmed();
     if (path.isEmpty()) return false;
-    // URL detection: warn but allow
-    if (!RunProgramService::isUrl(path) && !QFile::exists(path)) {
+    // URL detection: warn but allow; expand environment variables before existence check
+    const QString expandedPath = mcclock::utils::PlatformUtils::expandEnvVars(path);
+    if (!RunProgramService::isUrl(path) && !QFile::exists(expandedPath)) {
         if (QMessageBox::question(&dlg, QStringLiteral("\u63d0\u793a"),
                 QStringLiteral("\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u4ecd\u8981\u4fdd\u5b58\uff1f")) != QMessageBox::Yes) { // 文件不存在，仍要保存？
             return false;
@@ -435,6 +460,7 @@ bool runProgramForm(QWidget* parent, mcclock::models::RunProgramTask& t, bool is
     t.programPath = path;
     t.arguments = argsEdit->text();
     t.label = labelEdit->text();
+    t.enabled = enabledCheck->isChecked();
     return true;
 }
 

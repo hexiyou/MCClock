@@ -2,6 +2,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 class QMediaPlayer;
 class QAudioOutput;
@@ -23,6 +24,11 @@ public:
     explicit RingtoneManager(QObject* parent = nullptr);
     ~RingtoneManager() override;
 
+    // Directory holding the sound resource files (wav/mp3).
+    // Resolved as <exe dir>/sounds (deployment) with a compile-time
+    // fallback to the source resources/sounds directory for development.
+    static QString soundsDir();
+
     // Resolve ringtone id + custom path to an actual file path
     static QString resolveRingtonePath(int ringtoneId, const QString& customPath);
 
@@ -35,6 +41,12 @@ public:
     void stop();
     bool isPlaying() const;
 
+    // Voice announcement: "现在时间是 [早/下午/晚上] H 点 [M 分]"
+    // minute < 0 announces the hour only. Plays sequentially from the
+    // digit/point/MIN/am/pm/em/timenow wav files in soundsDir().
+    void speakTime(int hour, int minute, int volumePercent);
+    void stopVoice();
+
 signals:
     void playbackStopped();
 
@@ -42,10 +54,20 @@ private slots:
     void onAutoStop();
 
 private:
+    void playNextVoice();
+
     QMediaPlayer* player_ = nullptr;
     QAudioOutput* audioOutput_ = nullptr;
     QTimer* autoStopTimer_ = nullptr;
     bool playing_ = false;
+
+    // Sequential voice playback queue (separate player so it does not
+    // interrupt the ringtone)
+    QMediaPlayer* voicePlayer_ = nullptr;
+    QAudioOutput* voiceAudio_ = nullptr;
+    QStringList voiceQueue_;
+    int voiceIndex_ = 0;
+    int voiceVolume_ = 60;
 };
 
 } // namespace mcclock::services

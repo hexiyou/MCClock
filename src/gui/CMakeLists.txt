@@ -44,3 +44,14 @@ target_link_libraries(MCClock PRIVATE
 set_target_properties(MCClock PROPERTIES
     VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# Bundle sound resources next to the executable so alarm/chime audio works
+# both in build tree and in deployment (see tools/deploy.ps1)
+if(EXISTS "${CMAKE_SOURCE_DIR}/resources/sounds")
+    add_custom_command(TARGET MCClock POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_SOURCE_DIR}/resources/sounds"
+            "$<TARGET_FILE_DIR:MCClock>/sounds"
+        COMMENT "Copying sound resources to output directory"
+    )
+endif()

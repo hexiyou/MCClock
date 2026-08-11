@@ -273,11 +273,22 @@ void MainWindow::onAlarmTriggered() {
 }
 
 void MainWindow::onHourlyChime(int hour) {
-    // Floating popup at top of screen
-    new HourlyChimePopup(hour, nullptr);
-    trayIcon_->showMessage(QStringLiteral("\u6574\u70b9\u62a5\u65f6"), // 整点报时
-        QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour),
-        QSystemTrayIcon::Information, 3000);
+    auto& settings = mcclock::dal::SettingsManager::instance();
+    const QString mode = settings.chimeMode();
+    const bool text = (mode == "text_and_voice" || mode == "text");
+    const bool voice = (mode == "text_and_voice" || mode == "voice");
+
+    if (text) {
+        // Floating popup at top of screen
+        new HourlyChimePopup(hour, nullptr);
+        trayIcon_->showMessage(QStringLiteral("\u6574\u70b9\u62a5\u65f6"), // 整点报时
+            QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour),
+            QSystemTrayIcon::Information, 3000);
+    }
+    if (voice) {
+        // Voice announcement: "现在时间是 早/下午/晚上 N 点"
+        ringtone_->speakTime(hour, -1, settings.alarmVolume());
+    }
 }
 
 void MainWindow::setupDesktopClock() {

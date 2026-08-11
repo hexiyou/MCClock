@@ -8,6 +8,8 @@
 #include <QProcess>
 #include <QCoreApplication>
 
+#include <string>
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -118,20 +120,39 @@ public:
 #endif
     }
 
+    // Expand environment variables like %COMSPEC% or %USERPROFILE% in a string
+    static QString expandEnvVars(const QString& input) {
+#ifdef _WIN32
+        if (!input.contains('%')) return input;
+        const std::wstring wsrc = input.toStdWString();
+        DWORD len = ExpandEnvironmentStringsW(wsrc.c_str(), nullptr, 0);
+        if (len == 0) return input;
+        std::wstring wbuf(len, L'\0');
+        DWORD written = ExpandEnvironmentStringsW(wsrc.c_str(), wbuf.data(), len);
+        if (written == 0 || written > len) return input;
+        wbuf.resize(written - 1); // exclude trailing null
+        return QString::fromStdWString(wbuf);
+#else
+        return input;
+#endif
+    }
+
     // Run a program or open a URL
     static bool runProgramOrUrl(const QString& path, const QString& args = "") {
         if (path.startsWith("http://") || path.startsWith("https://")) {
             return QProcess::startDetached("cmd.exe", {"/c", "start", path});
         }
-        if (!args.isEmpty()) {
-            return QProcess::startDetached(path, args.split(' '));
+        const QString realPath = expandEnvVars(path.trimmed());
+        const QString realArgs = expandEnvVars(args);
+        if (!realArgs.isEmpty()) {
+            return QProcess::startDetached(realPath, realArgs.split(' ', Qt::SkipEmptyParts));
         }
-        return QProcess::startDetached(path, {});
+        return QProcess::startDetached(realPath, {});
     }
 
-    // Check if a program exists
+    // Check if a program exists (environment variables are expanded first)
     static bool programExists(const QString& path) {
-        return QFile::exists(path);
+        return QFile::exists(expandEnvVars(path));
     }
 };
 

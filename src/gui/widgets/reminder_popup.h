@@ -22,6 +22,7 @@ signals:
 
 private:
     void setupUi(const QString& title, const QString& message);
+    void paintEvent(QPaintEvent* event) override;
 };
 
 } // namespace mcclock::gui

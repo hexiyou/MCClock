@@ -8,6 +8,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include <QTimer>
+#include <QPainter>
 
 namespace mcclock::gui {
 
@@ -15,15 +16,24 @@ ReminderPopup::ReminderPopup(const QString& title, const QString& message, QWidg
     : QWidget(parent)
 {
     setWindowFlags(Qt::Tool | Qt::WindowStaysOnTopHint | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating, false);
     setFixedSize(360, 180);
     setupUi(title, message);
 }
 
+void ReminderPopup::paintEvent(QPaintEvent*) {
+    // QSS backgrounds are not painted on translucent custom widgets,
+    // so draw the rounded blue card manually
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(30, 136, 229)); // #1E88E5
+    p.drawRoundedRect(rect(), 8, 8);
+}
+
 void ReminderPopup::setupUi(const QString& title, const QString& message) {
-    setStyleSheet(
-        "ReminderPopup { background-color: #1E88E5; border-radius: 8px; }"
-        "QLabel { color: white; background: transparent; }");
+    setStyleSheet("ReminderPopup QLabel { color: white; background: transparent; }");
 
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(20, 16, 20, 16);
