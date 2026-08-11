@@ -1,0 +1,43 @@
+# Build output
+build/
+out/
+*.obj
+*.o
+*.lib
+*.dll
+*.exp
+*.pdb
+*.ilk
+*.exe
+*.user
+*.suo
+
+# IDE files
+.vs/
+.vscode/
+*.vcxproj.user
+CMakeSettings.json
+
+# Qt generated
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+*.qrc.depends
+
+# Compiled Resource Files
+*.qrc.depends
+
+# FetchContent
+_build/
+_deps/
+
+# OS files
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
