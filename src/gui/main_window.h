@@ -41,6 +41,7 @@ private:
     void setupUi();
     void setupTray();
     void setupScheduler();
+    void checkMissedAlarms();
     QWidget* createPlaceholderPage(const QString& title);
     void saveClosePreference(int action, bool dontAskAgain);
 

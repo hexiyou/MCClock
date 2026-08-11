@@ -1,9 +1,20 @@
 #include "main_window.h"
 #include "widgets/navigation_bar.h"
+#include "widgets/reminder_popup.h"
 #include "dialogs/close_confirm_dialog.h"
+#include "dialogs/settings_dialog.h"
+#include "pages/home_page.h"
+#include "pages/alarm_page.h"
+#include "pages/birthday_page.h"
+#include "pages/task_pages.h"
+#include "pages/countdown_page.h"
+#include "pages/stopwatch_page.h"
+#include "pages/health_page.h"
+#include "dialogs/missed_reminder_dialog.h"
 #include "theme_manager.h"
 #include "core/services/scheduler.h"
 #include "core/services/ringtone_manager.h"
+#include "core/services/business_services.h"
 #include "core/dal/settings_manager.h"
 
 #include <QVBoxLayout>
@@ -42,18 +53,32 @@ void MainWindow::setupUi() {
     root->addWidget(navBar_);
 
     pages_ = new QStackedWidget(central);
-    const QStringList pageTitles = {
-        QStringLiteral("\u9996\u9875"),             // 首页
-        QStringLiteral("\u95f9\u949f\u63d0\u9192"), // 闹钟提醒
-        QStringLiteral("\u751f\u65e5\u63d0\u9192"), // 生日提醒
-        QStringLiteral("\u5b9a\u65f6\u5173\u673a"), // 定时关机
-        QStringLiteral("\u8fd0\u884c\u7a0b\u5e8f"), // 运行程序
-        QStringLiteral("\u5012\u8ba1\u65f6"),       // 倒计时
-        QStringLiteral("\u8ba1\u65f6\u5668"),       // 计时器
-        QStringLiteral("\u5065\u5eb7\u63d0\u9192")  // 健康提醒
-    };
-    for (const auto& t : pageTitles) {
-        pages_->addWidget(createPlaceholderPage(t));
+    {
+        pages_->addWidget(new HomePage(this));
+
+        auto* alarmPage = new AlarmPage(this);
+        connect(alarmPage, &AlarmPage::dataChanged, scheduler_,
+                &mcclock::services::Scheduler::reload);
+        pages_->addWidget(alarmPage);
+
+        auto* birthdayPage = new BirthdayPage(this);
+        connect(birthdayPage, &BirthdayPage::dataChanged, scheduler_,
+                &mcclock::services::Scheduler::reload);
+        pages_->addWidget(birthdayPage);
+
+        auto* shutdownPage = new ShutdownPage(this);
+        connect(shutdownPage, &ShutdownPage::dataChanged, scheduler_,
+                &mcclock::services::Scheduler::reload);
+        pages_->addWidget(shutdownPage);
+
+        auto* runProgramPage = new RunProgramPage(this);
+        connect(runProgramPage, &RunProgramPage::dataChanged, scheduler_,
+                &mcclock::services::Scheduler::reload);
+        pages_->addWidget(runProgramPage);
+
+        pages_->addWidget(new CountdownPage(this));
+        pages_->addWidget(new StopwatchPage(this));
+        pages_->addWidget(new HealthPage(this));
     }
     root->addWidget(pages_, 1);
 
@@ -104,26 +129,79 @@ void MainWindow::setupScheduler() {
 
     connect(scheduler_, &mcclock::services::Scheduler::alarmTriggered,
             this, [this](const mcclock::models::Alarm& alarm) {
-        // P4: show ReminderPopup; for now play ringtone + tray message
         auto& settings = mcclock::dal::SettingsManager::instance();
         ringtone_->play(alarm.ringtone, alarm.customRingtonePath, alarm.ringMode,
                         alarm.customMinutes, settings.alarmVolume());
-        trayIcon_->showMessage(QStringLiteral("\u95f9\u949f\u63d0\u9192"), // 闹钟提醒
-            alarm.label.isEmpty() ? alarm.time : alarm.label,
-            QSystemTrayIcon::Information, 10000);
+
+        QString msg = QStringLiteral("\u73b0\u5728\u662f %1").arg(alarm.time); // 现在是 HH:mm
+        if (!alarm.label.isEmpty()) {
+            msg += QStringLiteral("\uff0c") + alarm.label; // ，备注
+        }
+        auto* popup = new ReminderPopup(
+            QStringLiteral("\u95f9\u949f\u63d0\u9192"), msg, nullptr); // 闹钟提醒
+        connect(popup, &ReminderPopup::dismissClicked, this, [this]() {
+            ringtone_->stop();
+        });
+        popup->setAttribute(Qt::WA_DeleteOnClose);
+        popup->showAtConfiguredPosition();
     });
 
     connect(scheduler_, &mcclock::services::Scheduler::birthdayTriggered,
             this, [this](const mcclock::models::Birthday& b) {
-        trayIcon_->showMessage(QStringLiteral("\u751f\u65e5\u63d0\u9192"), // 生日提醒
-            QStringLiteral("\u4eca\u5929\u662f %1 \u7684\u751f\u65e5\uff01").arg(b.name),
-            QSystemTrayIcon::Information, 10000);
+        auto& settings = mcclock::dal::SettingsManager::instance();
+        ringtone_->play(b.ringtone, b.customRingtonePath, b.ringMode,
+                        b.customMinutes, settings.alarmVolume());
+        auto* popup = new ReminderPopup(
+            QStringLiteral("\u751f\u65e5\u63d0\u9192"), // 生日提醒
+            QStringLiteral("%1 \u7684\u751f\u65e5\u5373\u5c06\u5230\u6765\uff0c\u4e0d\u8981\u5fd8\u8bb0\u9001\u4e0a\u795d\u798f\uff01").arg(b.name),
+            nullptr);
+        connect(popup, &ReminderPopup::dismissClicked, this, [this]() {
+            ringtone_->stop();
+        });
+        popup->setAttribute(Qt::WA_DeleteOnClose);
+        popup->showAtConfiguredPosition();
     });
 
     connect(scheduler_, &mcclock::services::Scheduler::hourlyChime,
             this, &MainWindow::onHourlyChime);
 
+    connect(scheduler_, &mcclock::services::Scheduler::shutdownWarning,
+            this, [this](const mcclock::models::ShutdownTask& task, int secondsLeft) {
+        trayIcon_->showMessage(QStringLiteral("\u5b9a\u65f6\u5173\u673a\u9884\u8b66"), // 定时关机预警
+            QStringLiteral("%1 \u5c06\u5728 %2 \u79d2\u540e\u6267\u884c").arg(task.time).arg(secondsLeft), // HH:mm 将在 N 秒后执行
+            QSystemTrayIcon::Warning, 3000);
+    });
+
+    connect(scheduler_, &mcclock::services::Scheduler::shutdownDue,
+            this, [](const mcclock::models::ShutdownTask& task) {
+        mcclock::services::ShutdownService().executeNow(task);
+    });
+
+    connect(scheduler_, &mcclock::services::Scheduler::runProgramTriggered,
+            this, [](const mcclock::models::RunProgramTask& task) {
+        mcclock::services::RunProgramService().executeNow(task);
+    });
+
     scheduler_->start();
+
+    checkMissedAlarms();
+}
+
+void MainWindow::checkMissedAlarms() {
+    auto& s = mcclock::dal::SettingsManager::instance();
+    if (!s.missedReminder()) return;
+
+    QString lastRun = s.get({"app", "last_run_time"}).toString();
+    QDateTime lastRunDt = QDateTime::fromString(lastRun, Qt::ISODate);
+    if (lastRunDt.isValid()) {
+        auto missed = mcclock::services::AlarmService().findMissed(lastRunDt);
+        if (!missed.isEmpty()) {
+            MissedReminderDialog dlg(missed, this);
+            dlg.exec();
+        }
+    }
+    s.set({"app", "last_run_time"}, QDateTime::currentDateTime().toString(Qt::ISODate));
+    s.save();
 }
 
 void MainWindow::showFromTray() {
@@ -155,9 +233,12 @@ void MainWindow::onHourlyChime(int hour) {
 }
 
 void MainWindow::openSettings() {
-    // P4: SettingsDialog
-    QMessageBox::information(this, QStringLiteral("\u5168\u5c40\u8bbe\u7f6e"),
-        QStringLiteral("\u8bbe\u7f6e\u9762\u677f\u5f00\u53d1\u4e2d")); // 设置面板开发中
+    SettingsDialog dlg(this);
+    connect(&dlg, &SettingsDialog::settingsSaved, this, [this]() {
+        // P6: restart HTTP API server here if settings changed
+        Q_UNUSED(this);
+    });
+    dlg.exec();
 }
 
 void MainWindow::saveClosePreference(int action, bool dontAskAgain) {
