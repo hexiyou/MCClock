@@ -2,6 +2,7 @@
 
 #include <QMainWindow>
 #include <QSystemTrayIcon>
+#include <QColor>
 
 class QStackedWidget;
 class QAction;
@@ -20,6 +21,7 @@ namespace mcclock::gui {
 class NavigationBar;
 class SidebarWidget;
 class DesktopClockWidget;
+class HomePage;
 
 // Main application window (740x480): navigation bar + stacked pages.
 // Pages are placeholders in P3; replaced by real feature pages in P4.
@@ -38,6 +40,9 @@ public:
 
     // Start minimized (boot auto-start mode)
     void setStartMinimized(bool v) { startMinimized_ = v; }
+
+    // Apply theme color to all dynamic elements
+    void applyThemeToPages(const QColor& primaryColor);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -68,6 +73,7 @@ private:
     mcclock::services::Scheduler* scheduler_ = nullptr;
     mcclock::services::RingtoneManager* ringtone_ = nullptr;
     mcclock::api::ApiServer* apiServer_ = nullptr;
+    HomePage* homePage_ = nullptr;
     bool startMinimized_ = false;
     bool exitingFromTrayMenu_ = false;
 };

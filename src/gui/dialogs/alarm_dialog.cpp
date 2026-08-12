@@ -167,9 +167,9 @@ void AlarmDialog::setupUi() {
         ringtoneCombo_->addItem(RingtoneManager::builtinName(i), i);
     }
     ringRow->addWidget(ringtoneCombo_, 1);
-    auto* previewBtn = new QPushButton(QStringLiteral("\u8bd5\u542c"), this); // 试听
-    connect(previewBtn, &QPushButton::clicked, this, &AlarmDialog::previewRingtone);
-    ringRow->addWidget(previewBtn);
+    previewBtn_ = new QPushButton(QStringLiteral("\u8bd5\u542c"), this); // 试听
+    connect(previewBtn_, &QPushButton::clicked, this, &AlarmDialog::previewRingtone);
+    ringRow->addWidget(previewBtn_);
     form->addRow(QStringLiteral("\u94c3\u58f0\uff1a"), ringRow); // 铃声：
 
     customPathEdit_ = new QLineEdit(this);
@@ -238,9 +238,11 @@ void AlarmDialog::previewRingtone() {
     static RingtoneManager previewer;
     if (previewer.isPlaying()) {
         previewer.stop();
+        previewBtn_->setText(QStringLiteral("\u8bd5\u542c")); // 试听
     } else {
         previewer.play(id, customPathEdit_->text(),
                        static_cast<int>(mcclock::models::RingMode::Once), 0, 80);
+        previewBtn_->setText(QStringLiteral("\u505c\u6b62")); // 停止
     }
 }
 

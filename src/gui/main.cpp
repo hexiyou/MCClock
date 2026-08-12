@@ -34,8 +34,16 @@ int main(int argc, char* argv[]) {
     QString settingsPath = mcclock::utils::PlatformUtils::settingsPath();
     mcclock::dal::SettingsManager::instance().load(settingsPath);
 
-    // Apply flat theme
-    mcclock::gui::ThemeManager::applyTheme(app);
+    // Sync auto-start state with registry on startup
+    bool autoStart = mcclock::dal::SettingsManager::instance().autoStart();
+    mcclock::utils::PlatformUtils::setAutoStart(autoStart);
+
+    // Apply theme with saved color
+    auto& settings = mcclock::dal::SettingsManager::instance();
+    QJsonValue themeColorValue = settings.get({"ui", "theme_color"});
+    QString themeColor = themeColorValue.isString() ? themeColorValue.toString() : "#1E88E5";
+    QColor primaryColor(themeColor);
+    mcclock::gui::ThemeManager::applyTheme(app, primaryColor);
 
     mcclock::gui::MainWindow window;
     if (parser.isSet(minimizedOpt)) {

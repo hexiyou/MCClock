@@ -30,8 +30,11 @@ private:
     QWidget* createReminderTab();
     QWidget* createChimeTab();
     QWidget* createAdvancedTab();
+    QWidget* createAboutTab();
     void loadSettings();
     void saveSettings();
+    void exportAllData();
+    void importAllData();
 
     // Tab 1
     QCheckBox* autoStartCheck_ = nullptr;

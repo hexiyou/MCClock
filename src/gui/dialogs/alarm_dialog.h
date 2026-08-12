@@ -12,6 +12,7 @@ class QDateEdit;
 class QLineEdit;
 class QStackedWidget;
 class QLabel;
+class QPushButton;
 
 namespace mcclock::gui {
 
@@ -55,6 +56,7 @@ private:
     QDateEdit* rangeEndEdit_ = nullptr;
 
     QComboBox* ringtoneCombo_ = nullptr;
+    QPushButton* previewBtn_ = nullptr;
     QLineEdit* customPathEdit_ = nullptr;
     QComboBox* ringModeCombo_ = nullptr;
     QSpinBox* customMinutesSpin_ = nullptr;

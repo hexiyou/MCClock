@@ -44,6 +44,10 @@ HomePage::HomePage(QWidget* parent)
     updateClock();
 }
 
+void HomePage::updateThemeColor(const QColor& primaryColor) {
+    timeLabel_->setStyleSheet(QString("font-size: 56px; font-weight: bold; color: %1;").arg(primaryColor.name()));
+}
+
 void HomePage::updateClock() {
     QDateTime now = QDateTime::currentDateTime();
     QDate d = now.date();

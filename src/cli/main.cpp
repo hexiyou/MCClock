@@ -68,6 +68,30 @@ int shutdownNameToOption(const QString& name) {
     return -1;
 }
 
+int ringModeNameToMode(const QString& name) {
+    QString n = name.toLower();
+    if (n == "announce" || n == "announce-time") return static_cast<int>(RingMode::AnnounceTime);
+    if (n == "continuous") return static_cast<int>(RingMode::Continuous);
+    if (n == "once") return static_cast<int>(RingMode::Once);
+    if (n == "silent") return static_cast<int>(RingMode::Silent);
+    if (n == "custom") return static_cast<int>(RingMode::Custom);
+    return -1;
+}
+
+QString ringModeToName(int mode) {
+    switch (static_cast<RingMode>(mode)) {
+    case RingMode::AnnounceTime: return "announce";
+    case RingMode::Continuous:   return "continuous";
+    case RingMode::Once:         return "once";
+    case RingMode::Silent:       return "silent";
+    case RingMode::Custom:       return "custom";
+    }
+    return "?";
+}
+
+QString genderToName(int g) { return g == 1 ? "female" : "male"; }
+int genderNameToId(const QString& name) { return name.toLower() == "female" ? 1 : 0; }
+
 QString shortUuid(const QString& uuid) { return uuid.left(8); }
 
 QString boolMark(bool v) { return v ? "Y" : "N"; }
@@ -127,6 +151,8 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
                 const QCommandLineOption& uuidOpt, const QCommandLineOption& labelOpt,
                 const QCommandLineOption& timeOpt, const QCommandLineOption& cycleOpt,
                 const QCommandLineOption& cycleDataOpt, const QCommandLineOption& fileOpt,
+                const QCommandLineOption& ringtoneOpt, const QCommandLineOption& ringModeOpt,
+                const QCommandLineOption& customMinutesOpt,
                 bool jsonOutput) {
     AlarmService svc;
 
@@ -162,7 +188,13 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
             if (m < 0) { errStream << "Error: invalid --cycle\n"; return 1; }
             a.cycleMode = m;
         }
-        a.cycleData = p.value(cycleDataOpt);
+        if (p.isSet(cycleDataOpt)) a.cycleData = p.value(cycleDataOpt);
+        if (p.isSet(ringtoneOpt)) a.ringtone = p.value(ringtoneOpt).toInt();
+        if (p.isSet(ringModeOpt)) {
+            int m = ringModeNameToMode(p.value(ringModeOpt));
+            if (m >= 0) a.ringMode = m;
+        }
+        if (p.isSet(customMinutesOpt)) a.customMinutes = p.value(customMinutesOpt).toInt();
         auto saved = svc.add(a);
         out << "Added alarm " << saved.uuid << "\n";
         return 0;
@@ -179,6 +211,12 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
             a.cycleMode = m;
         }
         if (p.isSet(cycleDataOpt)) a.cycleData = p.value(cycleDataOpt);
+        if (p.isSet(ringtoneOpt)) a.ringtone = p.value(ringtoneOpt).toInt();
+        if (p.isSet(ringModeOpt)) {
+            int m = ringModeNameToMode(p.value(ringModeOpt));
+            if (m >= 0) a.ringMode = m;
+        }
+        if (p.isSet(customMinutesOpt)) a.customMinutes = p.value(customMinutesOpt).toInt();
         if (svc.update(a)) { out << "Updated alarm " << a.uuid << "\n"; return 0; }
         errStream << "Error: update failed\n";
         return 1;
@@ -245,6 +283,8 @@ int handleBirthday(const QString& action, QCommandLineParser& p,
                    const QCommandLineOption& dateOpt, const QCommandLineOption& lunarOpt,
                    const QCommandLineOption& remindTimeOpt, const QCommandLineOption& advanceOpt,
                    const QCommandLineOption& labelOpt, const QCommandLineOption& fileOpt,
+                   const QCommandLineOption& genderOpt, const QCommandLineOption& ringtoneOpt,
+                   const QCommandLineOption& ringModeOpt, const QCommandLineOption& customMinutesOpt,
                    bool jsonOutput) {
     BirthdayService svc;
 
@@ -296,9 +336,16 @@ int handleBirthday(const QString& action, QCommandLineParser& p,
         b.name = p.value(nameOpt);
         if (b.name.isEmpty()) { errStream << "Error: --name is required\n"; return 1; }
         if (!applyDate(b)) return 1;
+        if (p.isSet(genderOpt)) b.gender = genderNameToId(p.value(genderOpt));
         if (p.isSet(remindTimeOpt)) b.remindTime = p.value(remindTimeOpt);
         if (p.isSet(advanceOpt)) b.advanceDays = p.value(advanceOpt).toInt();
         if (p.isSet(labelOpt)) b.label = p.value(labelOpt);
+        if (p.isSet(ringtoneOpt)) b.ringtone = p.value(ringtoneOpt).toInt();
+        if (p.isSet(ringModeOpt)) {
+            int m = ringModeNameToMode(p.value(ringModeOpt));
+            if (m >= 0) b.ringMode = m;
+        }
+        if (p.isSet(customMinutesOpt)) b.customMinutes = p.value(customMinutesOpt).toInt();
         auto saved = svc.add(b);
         out << "Added birthday " << saved.uuid << "\n";
         return 0;
@@ -309,9 +356,16 @@ int handleBirthday(const QString& action, QCommandLineParser& p,
         if (b.uuid.isEmpty()) { errStream << "Error: birthday not found\n"; return 1; }
         if (p.isSet(nameOpt)) b.name = p.value(nameOpt);
         if (!applyDate(b)) return 1;
+        if (p.isSet(genderOpt)) b.gender = genderNameToId(p.value(genderOpt));
         if (p.isSet(remindTimeOpt)) b.remindTime = p.value(remindTimeOpt);
         if (p.isSet(advanceOpt)) b.advanceDays = p.value(advanceOpt).toInt();
         if (p.isSet(labelOpt)) b.label = p.value(labelOpt);
+        if (p.isSet(ringtoneOpt)) b.ringtone = p.value(ringtoneOpt).toInt();
+        if (p.isSet(ringModeOpt)) {
+            int m = ringModeNameToMode(p.value(ringModeOpt));
+            if (m >= 0) b.ringMode = m;
+        }
+        if (p.isSet(customMinutesOpt)) b.customMinutes = p.value(customMinutesOpt).toInt();
         if (svc.update(b)) { out << "Updated birthday " << b.uuid << "\n"; return 0; }
         errStream << "Error: update failed\n";
         return 1;
@@ -350,6 +404,7 @@ int handleBirthday(const QString& action, QCommandLineParser& p,
 int handleShutdown(const QString& action, QCommandLineParser& p,
                    const QCommandLineOption& uuidOpt, const QCommandLineOption& labelOpt,
                    const QCommandLineOption& timeOpt, const QCommandLineOption& cycleOpt,
+                   const QCommandLineOption& cycleDataOpt,
                    const QCommandLineOption& optionOpt, const QCommandLineOption& advanceOpt,
                    const QCommandLineOption& yesOpt, const QCommandLineOption& fileOpt,
                    bool jsonOutput) {
@@ -390,6 +445,7 @@ int handleShutdown(const QString& action, QCommandLineParser& p,
             if (o < 0) { errStream << "Error: invalid --option\n"; return 1; }
             t.shutdownOption = o;
         }
+        if (p.isSet(cycleDataOpt)) t.cycleData = p.value(cycleDataOpt);
         if (p.isSet(advanceOpt)) t.advanceSeconds = p.value(advanceOpt).toInt();
         auto saved = svc.add(t);
         out << "Added shutdown task " << saved.uuid << "\n";
@@ -411,6 +467,7 @@ int handleShutdown(const QString& action, QCommandLineParser& p,
             if (o < 0) { errStream << "Error: invalid --option\n"; return 1; }
             t.shutdownOption = o;
         }
+        if (p.isSet(cycleDataOpt)) t.cycleData = p.value(cycleDataOpt);
         if (p.isSet(advanceOpt)) t.advanceSeconds = p.value(advanceOpt).toInt();
         if (svc.update(t)) { out << "Updated shutdown task " << t.uuid << "\n"; return 0; }
         errStream << "Error: update failed\n";
@@ -471,6 +528,7 @@ int handleShutdown(const QString& action, QCommandLineParser& p,
 int handleRun(const QString& action, QCommandLineParser& p,
               const QCommandLineOption& uuidOpt, const QCommandLineOption& labelOpt,
               const QCommandLineOption& timeOpt, const QCommandLineOption& cycleOpt,
+              const QCommandLineOption& cycleDataOpt,
               const QCommandLineOption& pathOpt, const QCommandLineOption& argsOpt,
               const QCommandLineOption& yesOpt, const QCommandLineOption& fileOpt,
               bool jsonOutput) {
@@ -507,6 +565,7 @@ int handleRun(const QString& action, QCommandLineParser& p,
             if (m < 0) { errStream << "Error: invalid --cycle\n"; return 1; }
             t.cycleMode = m;
         }
+        if (p.isSet(cycleDataOpt)) t.cycleData = p.value(cycleDataOpt);
         auto saved = svc.add(t);
         out << "Added run-program task " << saved.uuid << "\n";
         return 0;
@@ -524,6 +583,7 @@ int handleRun(const QString& action, QCommandLineParser& p,
             if (m < 0) { errStream << "Error: invalid --cycle\n"; return 1; }
             t.cycleMode = m;
         }
+        if (p.isSet(cycleDataOpt)) t.cycleData = p.value(cycleDataOpt);
         if (svc.update(t)) { out << "Updated run-program task " << t.uuid << "\n"; return 0; }
         errStream << "Error: update failed\n";
         return 1;
@@ -676,6 +736,90 @@ int handleCountdown(const QString& action, QCommandLineParser& p,
         return 0;
     }
     errStream << "Error: unknown countdown action: " << action << "\n";
+    return 1;
+}
+
+// ════════════════════════ health ════════════════════════
+
+int handleHealth(const QString& action, QCommandLineParser& p,
+                 const QCommandLineOption& uuidOpt, const QCommandLineOption& labelOpt,
+                 const QCommandLineOption& ringtoneOpt, const QCommandLineOption& ringModeOpt,
+                 const QCommandLineOption& customMinutesOpt, bool jsonOutput) {
+    HealthService svc;
+
+    if (action.isEmpty() || action == "get" || action == "show") {
+        HealthSettings h = svc.get();
+        if (jsonOutput) {
+            printJson(h.toJson());
+        } else {
+            out << "Health Settings:\n";
+            out << "  UUID:           " << h.uuid << "\n";
+            out << "  Enabled:        " << boolMark(h.enabled) << "\n";
+            out << "  Display Mode:   " << (h.displayMode == static_cast<int>(HealthDisplayMode::Fullscreen) ? "fullscreen" : "window") << "\n";
+            out << "  Work Minutes:   " << h.workMinutes << "\n";
+            out << "  Rest Minutes:   " << h.restMinutes << "\n";
+            out << "  Ringtone:       " << h.ringtone << "\n";
+            out << "  Ring Mode:      " << ringModeToName(h.ringMode) << "\n";
+            out << "  Custom Minutes: " << h.customMinutes << "\n";
+            out << "  Label:          " << h.label << "\n";
+        }
+        return 0;
+    }
+    if (action == "set" || action == "update") {
+        HealthSettings h = svc.get();
+        if (p.isSet(labelOpt)) h.label = p.value(labelOpt);
+        if (p.isSet(ringtoneOpt)) h.ringtone = p.value(ringtoneOpt).toInt();
+        if (p.isSet(ringModeOpt)) {
+            int m = ringModeNameToMode(p.value(ringModeOpt));
+            if (m >= 0) h.ringMode = m;
+        }
+        if (p.isSet(customMinutesOpt)) h.customMinutes = p.value(customMinutesOpt).toInt();
+
+        // Parse extra positional arguments for enable/disable/work/rest/display
+        QStringList args = p.positionalArguments();
+        for (int i = 2; i < args.size(); ++i) {
+            QString arg = args[i].toLower();
+            if (arg == "enable" || arg == "on") h.enabled = true;
+            else if (arg == "disable" || arg == "off") h.enabled = false;
+            else if (arg.startsWith("work=")) {
+                bool ok;
+                int val = arg.mid(5).toInt(&ok);
+                if (ok && val >= 1 && val <= 999) h.workMinutes = val;
+            }
+            else if (arg.startsWith("rest=")) {
+                bool ok;
+                int val = arg.mid(5).toInt(&ok);
+                if (ok && val >= 1 && val <= 99) h.restMinutes = val;
+            }
+            else if (arg.startsWith("display=")) {
+                QString mode = arg.mid(8);
+                if (mode == "window") h.displayMode = static_cast<int>(HealthDisplayMode::Window);
+                else if (mode == "fullscreen") h.displayMode = static_cast<int>(HealthDisplayMode::Fullscreen);
+            }
+        }
+
+        if (svc.save(h)) {
+            out << "Health settings updated\n";
+            return 0;
+        }
+        errStream << "Error: save failed\n";
+        return 1;
+    }
+    if (action == "enable") {
+        HealthSettings h = svc.get();
+        h.enabled = true;
+        if (svc.save(h)) { out << "Health monitoring enabled\n"; return 0; }
+        errStream << "Error: save failed\n";
+        return 1;
+    }
+    if (action == "disable") {
+        HealthSettings h = svc.get();
+        h.enabled = false;
+        if (svc.save(h)) { out << "Health monitoring disabled\n"; return 0; }
+        errStream << "Error: save failed\n";
+        return 1;
+    }
+    errStream << "Error: unknown health action: " << action << "\n";
     return 1;
 }
 
@@ -860,6 +1004,7 @@ void printUsage() {
     out << "  shutdown    Scheduled shutdown tasks\n";
     out << "  run         Run program tasks\n";
     out << "  countdown   Countdown timers\n";
+    out << "  health      Health monitoring settings\n";
     out << "  settings    Application settings\n";
     out << "  system      System operations\n\n";
     out << "Common actions:\n";
@@ -875,6 +1020,7 @@ void printUsage() {
     out << "  birthday:   (list/add/edit/delete/export/import)\n";
     out << "  shutdown:   run (--yes --uuid)\n";
     out << "  run:        run (--uuid)\n";
+    out << "  health:     get/set/enable/disable\n";
     out << "  settings:   get <path>, set <path> <value>, list\n";
     out << "  system:     info, autostart on|off, shutdown/restart/logoff (--yes),\n";
     out << "              backup [--file x.zip], restore --file x.zip --yes\n\n";
@@ -895,12 +1041,18 @@ void printUsage() {
     out << "  --path <p>      Program path or URL\n";
     out << "  --args <a>      Program arguments\n";
     out << "  --file <f>      Export/import file path\n";
-    out << "  --yes           Confirm dangerous operations\n\n";
+    out << "  --yes           Confirm dangerous operations\n";
+    out << "  --ringtone <id> Ringtone ID (1-8, 7=random, 8=custom)\n";
+    out << "  --ring-mode <m> Ring mode: announce|continuous|once|silent|custom\n";
+    out << "  --custom-minutes <n>  Custom ring duration (minutes)\n";
+    out << "  --gender <g>    Gender: male|female\n\n";
     out << "Examples:\n";
     out << "  MCClock-CLI alarm list\n";
     out << "  MCClock-CLI alarm add --time 07:30 --label \"Wake up\" --cycle daily\n";
     out << "  MCClock-CLI alarm list --json\n";
-    out << "  MCClock-CLI birthday add --name \"Mom\" --date 1965-03-20\n";
+    out << "  MCClock-CLI birthday add --name \"Mom\" --date 1965-03-20 --gender female\n";
+    out << "  MCClock-CLI health get\n";
+    out << "  MCClock-CLI health set enable work=30 rest=5\n";
     out << "  MCClock-CLI settings get reminder.volume\n";
     out << "  MCClock-CLI settings set reminder.volume 80\n";
     out << "  MCClock-CLI system info\n";
@@ -956,6 +1108,10 @@ int main(int argc, char* argv[]) {
     QCommandLineOption argsOpt("args", "Program arguments", "args");
     QCommandLineOption fileOpt("file", "Export/import file path", "file");
     QCommandLineOption yesOpt("yes", "Confirm dangerous operations");
+    QCommandLineOption ringtoneOpt("ringtone", "Ringtone ID (1-8, 7=random, 8=custom)", "id");
+    QCommandLineOption ringModeOpt("ring-mode", "Ring mode: announce|continuous|once|silent|custom", "mode");
+    QCommandLineOption customMinutesOpt("custom-minutes", "Custom ring duration (minutes)", "n");
+    QCommandLineOption genderOpt("gender", "Gender: male|female", "gender");
 
     parser.addOption(jsonOpt);
     parser.addOption(uuidOpt);
@@ -975,6 +1131,10 @@ int main(int argc, char* argv[]) {
     parser.addOption(argsOpt);
     parser.addOption(fileOpt);
     parser.addOption(yesOpt);
+    parser.addOption(ringtoneOpt);
+    parser.addOption(ringModeOpt);
+    parser.addOption(customMinutesOpt);
+    parser.addOption(genderOpt);
 
     parser.process(app);
 
@@ -993,19 +1153,24 @@ int main(int argc, char* argv[]) {
 
     if (module == "alarm") {
         rc = handleAlarm(action, parser, uuidOpt, labelOpt, timeOpt, cycleOpt,
-                         cycleDataOpt, fileOpt, jsonOutput);
+                         cycleDataOpt, fileOpt, ringtoneOpt, ringModeOpt,
+                         customMinutesOpt, jsonOutput);
     } else if (module == "birthday") {
         rc = handleBirthday(action, parser, uuidOpt, nameOpt, dateOpt, lunarOpt,
-                            remindTimeOpt, advanceOpt, labelOpt, fileOpt, jsonOutput);
+                            remindTimeOpt, advanceOpt, labelOpt, fileOpt,
+                            genderOpt, ringtoneOpt, ringModeOpt, customMinutesOpt, jsonOutput);
     } else if (module == "shutdown") {
         rc = handleShutdown(action, parser, uuidOpt, labelOpt, timeOpt, cycleOpt,
-                            optionOpt, advanceOpt, yesOpt, fileOpt, jsonOutput);
+                            cycleDataOpt, optionOpt, advanceOpt, yesOpt, fileOpt, jsonOutput);
     } else if (module == "run") {
         rc = handleRun(action, parser, uuidOpt, labelOpt, timeOpt, cycleOpt,
-                       pathOpt, argsOpt, yesOpt, fileOpt, jsonOutput);
+                       cycleDataOpt, pathOpt, argsOpt, yesOpt, fileOpt, jsonOutput);
     } else if (module == "countdown") {
         rc = handleCountdown(action, parser, uuidOpt, labelOpt, minutesOpt, targetOpt,
                              fileOpt, jsonOutput);
+    } else if (module == "health") {
+        rc = handleHealth(action, parser, uuidOpt, labelOpt,
+                          ringtoneOpt, ringModeOpt, customMinutesOpt, jsonOutput);
     } else if (module == "settings") {
         rc = handleSettings(action, args, jsonOutput);
     } else if (module == "system") {

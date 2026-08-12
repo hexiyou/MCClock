@@ -43,8 +43,14 @@ public:
     // Set auto-start on Windows boot (via registry)
     static bool setAutoStart(bool enable) {
 #ifdef _WIN32
-        QSettings reg("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                      QSettings::NativeFormat);
+        HKEY hKey;
+        LONG result = RegOpenKeyExW(HKEY_CURRENT_USER,
+                                    L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                                    0, KEY_SET_VALUE, &hKey);
+        if (result != ERROR_SUCCESS) {
+            return false;
+        }
+
         if (enable) {
             QString exePath = QCoreApplication::applicationFilePath();
             // When called from the CLI executable, auto-start should still
@@ -56,11 +62,17 @@ public:
                     exePath = guiPath;
                 }
             }
-            reg.setValue("MCClock", "\"" + exePath + "\" --minimized");
+            QString value = "\"" + exePath + "\" --minimized";
+            std::wstring wValue = value.toStdWString();
+            result = RegSetValueExW(hKey, L"MCClock", 0, REG_SZ,
+                                   reinterpret_cast<const BYTE*>(wValue.c_str()),
+                                   static_cast<DWORD>((wValue.size() + 1) * sizeof(wchar_t)));
         } else {
-            reg.remove("MCClock");
+            result = RegDeleteValueW(hKey, L"MCClock");
         }
-        return true;
+
+        RegCloseKey(hKey);
+        return (result == ERROR_SUCCESS);
 #else
         Q_UNUSED(enable);
         return false;
@@ -70,9 +82,17 @@ public:
     // Check if auto-start is enabled
     static bool isAutoStartEnabled() {
 #ifdef _WIN32
-        QSettings reg("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                      QSettings::NativeFormat);
-        return reg.contains("MCClock");
+        HKEY hKey;
+        LONG result = RegOpenKeyExW(HKEY_CURRENT_USER,
+                                    L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                                    0, KEY_QUERY_VALUE, &hKey);
+        if (result != ERROR_SUCCESS) {
+            return false;
+        }
+
+        result = RegQueryValueExW(hKey, L"MCClock", nullptr, nullptr, nullptr, nullptr);
+        RegCloseKey(hKey);
+        return (result == ERROR_SUCCESS);
 #else
         return false;
 #endif

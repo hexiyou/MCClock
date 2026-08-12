@@ -19,7 +19,11 @@ $buildDir = Join-Path $root "build"
 # MSVC multi-config generators place binaries under bin\<Configuration>
 $binDir   = Join-Path $buildDir "bin\$Configuration"
 $deployDir = Join-Path $root "deploy"
-$cmake    = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+# Try VS 2022 first, fall back to VS 2025 if available
+$cmake = "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+if (-not (Test-Path $cmake)) {
+    $cmake = "C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+}
 $qtBin    = "C:\Qt\6.8.3\msvc2022_64\bin"
 $windeployqt = Join-Path $qtBin "windeployqt.exe"
 
@@ -27,7 +31,8 @@ $windeployqt = Join-Path $qtBin "windeployqt.exe"
 if (-not $SkipBuild) {
     Write-Host "[1/4] Building $Configuration ..."
     if (-not (Test-Path (Join-Path $buildDir "CMakeCache.txt"))) {
-        & $cmake -S $root -B $buildDir -G "Visual Studio 18 2025" -A x64
+        # Use VS 2026 (Visual Studio 18)
+        & $cmake -S $root -B $buildDir -G "Visual Studio 18 2026" -A x64
         if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
     }
     # Ensure a running MCClock instance does not lock the executable
@@ -59,7 +64,11 @@ if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
 Write-Host "[3/4] Copying sound resources ..."
 $soundsSrc = Join-Path $root "resources\sounds"
 if (-not (Test-Path $soundsSrc)) { throw "Missing sound resources: $soundsSrc" }
-Copy-Item $soundsSrc (Join-Path $deployDir "sounds") -Recurse -Force
+$soundsDst = Join-Path $deployDir "sounds"
+# Remove any stale copy first: Copy-Item would nest the source folder
+# inside an existing destination directory (sounds/sounds/...)
+if (Test-Path $soundsDst) { Remove-Item $soundsDst -Recurse -Force }
+Copy-Item $soundsSrc $soundsDst -Recurse -Force
 
 # ── 4. Zip package ──
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"

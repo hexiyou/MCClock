@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QDateTime>
+#include <QColor>
 
 class QLabel;
 class QTimer;
@@ -14,6 +15,9 @@ class HomePage : public QWidget {
     Q_OBJECT
 public:
     explicit HomePage(QWidget* parent = nullptr);
+
+    // Update theme color for time display
+    void updateThemeColor(const QColor& primaryColor);
 
 private slots:
     void updateClock();

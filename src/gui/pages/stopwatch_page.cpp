@@ -20,13 +20,35 @@ using mcclock::services::StopwatchService;
 StopwatchPage::StopwatchPage(QWidget* parent)
     : QWidget(parent)
 {
-    stopwatch_ = new StopwatchService(this);
+    stopwatch_ = &StopwatchService::instance();
     setupUi();
 
     displayTimer_ = new QTimer(this);
     displayTimer_->setInterval(50);
     connect(displayTimer_, &QTimer::timeout, this, &StopwatchPage::onDisplayTick);
     updateButtons();
+
+    // React to external state changes (e.g. HTTP API controlling the same stopwatch)
+    connect(stopwatch_, &StopwatchService::started, this, [this]() {
+        displayTimer_->start();
+        updateButtons();
+    });
+    connect(stopwatch_, &StopwatchService::paused, this, [this]() {
+        onDisplayTick(); // freeze the display at current time
+        updateButtons();
+    });
+    connect(stopwatch_, &StopwatchService::resetDone, this, [this]() {
+        displayTimer_->stop();
+        display_->setText("00:00:00.00");
+        lapList_->clear();
+        updateButtons();
+    });
+    connect(stopwatch_, &StopwatchService::lapped, this, [this](qint64 totalMs) {
+        int index = stopwatch_->laps().size();
+        qint64 prev = index >= 2 ? stopwatch_->laps()[index - 2] : 0;
+        lapList_->insertItem(0, QStringLiteral("\u7b2c %1 \u5708  %2  \uff08\u672c\u5708 %3\uff09")
+            .arg(index).arg(formatMs(totalMs)).arg(formatMs(totalMs - prev)));
+    });
 }
 
 void StopwatchPage::setupUi() {

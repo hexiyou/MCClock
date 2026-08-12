@@ -14,6 +14,8 @@
 #include <QDebug>
 #include <functional>
 #include <string>
+#include <thread>
+#include <atomic>
 
 namespace mcclock::api {
 
@@ -138,10 +140,14 @@ class ApiServer::Worker : public QObject {
     Q_OBJECT
 public:
     Worker() = default;
-    ~Worker() override { svr_.stop(); }
+    ~Worker() override {
+        // Destructor should not call svr_.stop() as it may block
+        // The server should be stopped explicitly before destruction
+    }
 
     httplib::Server svr_;
-    StopwatchService stopwatch_;
+    std::atomic<bool> stopped_{false};
+    std::atomic<bool> running_{false};
 
     void setupRoutes() {
         auto onChanged = [this]() { emit dataChanged(); };
@@ -201,14 +207,15 @@ public:
             [](const QString& uuid) { return CountdownService().remove(uuid); }
         }, onChanged);
 
-        // Stopwatch control
-        auto stopwatchStatus = [this]() {
+        // Stopwatch control — uses process-wide singleton shared with the GUI page
+        auto stopwatchStatus = []() {
+            auto& sw = StopwatchService::instance();
             json data;
-            data["state"] = stopwatch_.state() == StopwatchService::State::Running ? "running"
-                          : stopwatch_.state() == StopwatchService::State::Paused ? "paused" : "stopped";
-            data["elapsedMs"] = stopwatch_.elapsedMs();
+            data["state"] = sw.state() == StopwatchService::State::Running ? "running"
+                          : sw.state() == StopwatchService::State::Paused ? "paused" : "stopped";
+            data["elapsedMs"] = sw.elapsedMs();
             json laps = json::array();
-            for (auto ms : stopwatch_.laps()) laps.push_back(ms);
+            for (auto ms : sw.laps()) laps.push_back(ms);
             data["laps"] = laps;
             return data;
         };
@@ -217,29 +224,96 @@ public:
             respondOk(res, stopwatchStatus());
         });
         svr_.Post("/api/v1/stopwatch/start",
-                  [this, stopwatchStatus](const httplib::Request&, httplib::Response& res) {
-            stopwatch_.start();
+                  [stopwatchStatus](const httplib::Request&, httplib::Response& res) {
+            StopwatchService::instance().start();
             respondOk(res, stopwatchStatus());
         });
         svr_.Post("/api/v1/stopwatch/pause",
-                  [this, stopwatchStatus](const httplib::Request&, httplib::Response& res) {
-            stopwatch_.pause();
+                  [stopwatchStatus](const httplib::Request&, httplib::Response& res) {
+            StopwatchService::instance().pause();
             respondOk(res, stopwatchStatus());
         });
         svr_.Post("/api/v1/stopwatch/stop",
-                  [this, stopwatchStatus](const httplib::Request&, httplib::Response& res) {
-            stopwatch_.reset();
+                  [stopwatchStatus](const httplib::Request&, httplib::Response& res) {
+            StopwatchService::instance().reset();
             respondOk(res, stopwatchStatus());
         });
         svr_.Post("/api/v1/stopwatch/reset",
-                  [this, stopwatchStatus](const httplib::Request&, httplib::Response& res) {
-            stopwatch_.reset();
+                  [stopwatchStatus](const httplib::Request&, httplib::Response& res) {
+            StopwatchService::instance().reset();
             respondOk(res, stopwatchStatus());
         });
         svr_.Post("/api/v1/stopwatch/lap",
-                  [this, stopwatchStatus](const httplib::Request&, httplib::Response& res) {
-            stopwatch_.lap();
+                  [stopwatchStatus](const httplib::Request&, httplib::Response& res) {
+            StopwatchService::instance().lap();
             respondOk(res, stopwatchStatus());
+        });
+
+        // ── Alarm recycle bin ──
+        svr_.Get("/api/v1/alarms/deleted",
+                 [onChanged](const httplib::Request&, httplib::Response& res) {
+            respondOk(res, listToJson<Alarm>(AlarmService().findDeleted()));
+        });
+        svr_.Post(R"(/api/v1/alarms/restore/([^/]+))",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            if (AlarmService().restore(uuid)) { onChanged(); respondOk(res); }
+            else respondFail(res, "restore failed");
+        });
+        svr_.Post(R"(/api/v1/alarms/purge/([^/]+))",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            if (AlarmService().hardDelete(uuid)) { onChanged(); respondOk(res); }
+            else respondFail(res, "purge failed");
+        });
+        svr_.Post("/api/v1/alarms/clear-recycle",
+                  [onChanged](const httplib::Request&, httplib::Response& res) {
+            if (AlarmService().clearRecycleBin()) { onChanged(); respondOk(res); }
+            else respondFail(res, "clear-recycle failed");
+        });
+
+        // ── Execute now ──
+        svr_.Post(R"(/api/v1/run-programs/([^/]+)/run)",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            RunProgramTask t = RunProgramService().findByUuid(uuid);
+            if (t.uuid.isEmpty()) { respondFail(res, "not found"); return; }
+            if (RunProgramService().executeNow(t)) { onChanged(); respondOk(res); }
+            else respondFail(res, "launch failed");
+        });
+        svr_.Post(R"(/api/v1/shutdown-tasks/([^/]+)/run)",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            ShutdownTask t = ShutdownService().findByUuid(uuid);
+            if (t.uuid.isEmpty()) { respondFail(res, "not found"); return; }
+            if (ShutdownService().executeNow(t)) { onChanged(); respondOk(res); }
+            else respondFail(res, "execute failed");
+        });
+
+        // ── Health settings ──
+        svr_.Get("/api/v1/health", [](const httplib::Request&, httplib::Response& res) {
+            respondOk(res, qToJson(HealthService().get().toJson()));
+        });
+        svr_.Put("/api/v1/health", [onChanged](const httplib::Request& req, httplib::Response& res) {
+            json body;
+            if (!parseBody(req, body) || !body.is_object()) {
+                respondFail(res, "invalid json body");
+                return;
+            }
+            auto h = HealthService().get();
+            QJsonObject jo = jsonToQ(body);
+            if (jo.contains("enabled"))    h.enabled = jo["enabled"].toBool();
+            if (jo.contains("displayMode")) h.displayMode = jo["displayMode"].toInt();
+            if (jo.contains("workMinutes")) h.workMinutes = jo["workMinutes"].toInt();
+            if (jo.contains("restMinutes")) h.restMinutes = jo["restMinutes"].toInt();
+            if (jo.contains("ringtone"))    h.ringtone = jo["ringtone"].toInt();
+            if (jo.contains("ringMode"))    h.ringMode = jo["ringMode"].toInt();
+            if (jo.contains("customRingtonePath")) h.customRingtonePath = jo["customRingtonePath"].toString();
+            if (jo.contains("customMinutes")) h.customMinutes = jo["customMinutes"].toInt();
+            if (jo.contains("label"))       h.label = jo["label"].toString();
+            HealthService().save(h);
+            onChanged();
+            respondOk(res, qToJson(h.toJson()));
         });
 
         // Settings
@@ -276,13 +350,25 @@ public slots:
             emit failed(QStringLiteral("bind %1:%2 failed").arg(bindIp).arg(port));
             return;
         }
+        running_ = true;
         emit started(QStringLiteral("%1:%2").arg(bindIp).arg(port));
         svr_.listen_after_bind();
-        emit stopped();
+        running_ = false;
+        if (!stopped_) {
+            emit stopped();
+        }
     }
 
     void stopServer() {
-        svr_.stop();
+        stopped_ = true;
+        // Use a separate thread to call stop() to avoid blocking
+        std::thread stopThread([this]() {
+            svr_.stop();
+        });
+        // Wait briefly for stop to complete, but don't block forever
+        if (stopThread.joinable()) {
+            stopThread.detach();
+        }
     }
 
 signals:
@@ -337,14 +423,35 @@ void ApiServer::start(const QString& bindIp, int port) {
 
 void ApiServer::stop() {
     if (!thread_) return;
+
+    // Mark worker as stopping and invoke stopServer
     if (worker_) {
+        worker_->stopped_ = true;
         QMetaObject::invokeMethod(worker_, "stopServer", Qt::QueuedConnection);
     }
-    if (!thread_->wait(3000)) {
-        thread_->terminate();
-        thread_->wait(1000);
+
+    // Wait for thread to finish with timeout
+    if (thread_->isRunning()) {
+        // Try to quit the event loop first
+        thread_->quit();
+
+        if (!thread_->wait(3000)) {
+            // Force terminate if thread doesn't stop
+            qWarning() << "API server thread did not stop gracefully, terminating...";
+            thread_->terminate();
+            thread_->wait(1000);
+        }
     }
-    thread_->deleteLater();
+
+    // Cleanup - disconnect signals first to avoid dangling connections
+    if (worker_) {
+        disconnect(worker_, nullptr, this, nullptr);
+    }
+    if (thread_) {
+        disconnect(thread_, nullptr, nullptr, nullptr);
+        thread_->deleteLater();
+    }
+
     thread_ = nullptr;
     worker_ = nullptr;
     running_ = false;

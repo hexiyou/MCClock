@@ -5,6 +5,7 @@
 #include "widgets/desktop_clock_widget.h"
 #include "dialogs/close_confirm_dialog.h"
 #include "dialogs/settings_dialog.h"
+#include "dialogs/theme_dialog.h"
 #include "pages/home_page.h"
 #include "pages/alarm_page.h"
 #include "pages/birthday_page.h"
@@ -44,6 +45,14 @@ MainWindow::MainWindow(QWidget* parent)
     setupScheduler();
     setupDesktopClock();
     syncApiServer();
+
+    // Apply saved theme color to pages
+    auto& s = mcclock::dal::SettingsManager::instance();
+    QJsonValue themeColorValue = s.get({"ui", "theme_color"});
+    if (themeColorValue.isString()) {
+        QColor savedColor(themeColorValue.toString());
+        applyThemeToPages(savedColor);
+    }
 }
 
 MainWindow::~MainWindow() = default;
@@ -59,7 +68,8 @@ void MainWindow::setupUi() {
 
     pages_ = new QStackedWidget(central);
     {
-        pages_->addWidget(new HomePage(this));
+        homePage_ = new HomePage(this);
+        pages_->addWidget(homePage_);
 
         auto* alarmPage = new AlarmPage(this);
         connect(alarmPage, &AlarmPage::dataChanged, scheduler_,
@@ -103,8 +113,18 @@ void MainWindow::setupUi() {
             pages_, &QStackedWidget::setCurrentIndex);
     connect(navBar_, &NavigationBar::settingsClicked, this, &MainWindow::openSettings);
     connect(navBar_, &NavigationBar::skinClicked, this, [this]() {
-        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
-            QStringLiteral("\u76ae\u80a4\u5207\u6362\u529f\u80fd\u5f00\u53d1\u4e2d")); // 皮肤切换功能开发中
+        mcclock::gui::ThemeDialog dialog(this);
+        if (dialog.exec() == QDialog::Accepted) {
+            QColor selectedColor = dialog.selectedColor();
+            // Apply new theme
+            mcclock::gui::ThemeManager::applyTheme(*qApp, selectedColor);
+            // Apply to pages (e.g., home page time color)
+            applyThemeToPages(selectedColor);
+            // Save to settings
+            auto& s = mcclock::dal::SettingsManager::instance();
+            s.set({"ui", "theme_color"}, selectedColor.name());
+            s.save();
+        }
     });
 }
 
@@ -116,6 +136,13 @@ QWidget* MainWindow::createPlaceholderPage(const QString& title) {
     label->setStyleSheet("font-size: 20px; color: #90A4AE;");
     layout->addWidget(label);
     return page;
+}
+
+void MainWindow::applyThemeToPages(const QColor& primaryColor) {
+    // Update home page time display color
+    if (homePage_) {
+        homePage_->updateThemeColor(primaryColor);
+    }
 }
 
 void MainWindow::setupTray() {
@@ -344,8 +371,14 @@ void MainWindow::syncApiServer() {
     bool enabled = s.httpApiEnabled();
 
     if (!enabled) {
-        if (apiServer_ && apiServer_->isRunning()) {
-            apiServer_->stop();
+        // Stop API server if it's running
+        if (apiServer_) {
+            if (apiServer_->isRunning()) {
+                apiServer_->stop();
+            }
+            // Delete the server object to clean up
+            apiServer_->deleteLater();
+            apiServer_ = nullptr;
         }
         return;
     }

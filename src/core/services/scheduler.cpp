@@ -177,6 +177,11 @@ StopwatchService::StopwatchService(QObject* parent)
 {
 }
 
+StopwatchService& StopwatchService::instance() {
+    static StopwatchService shared;
+    return shared;
+}
+
 qint64 StopwatchService::elapsedMs() const {
     if (state_ == State::Running) {
         return accumulatedMs_ + segmentStart_.msecsTo(QDateTime::currentDateTime());
