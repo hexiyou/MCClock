@@ -30,6 +30,11 @@
 #include <QMessageBox>
 #include <QCloseEvent>
 #include <QApplication>
+#include <QEvent>
+#include <QAction>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QPlainTextEdit>
 
 namespace mcclock::gui {
 
@@ -45,6 +50,9 @@ MainWindow::MainWindow(QWidget* parent)
     setupScheduler();
     setupDesktopClock();
     syncApiServer();
+
+    // Install event filter for Chinese context menu on text widgets
+    qApp->installEventFilter(this);
 
     // Apply saved theme color to pages
     auto& s = mcclock::dal::SettingsManager::instance();
@@ -437,6 +445,80 @@ void MainWindow::closeEvent(QCloseEvent* event) {
     } else {
         event->ignore();
     }
+}
+
+bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
+    // Intercept context menu requests on text input widgets
+    if (event->type() == QEvent::ContextMenu) {
+        auto* lineEdit = qobject_cast<QLineEdit*>(obj);
+        auto* textEdit = qobject_cast<QTextEdit*>(obj);
+        auto* plainEdit = qobject_cast<QPlainTextEdit*>(obj);
+
+        if (lineEdit || textEdit || plainEdit) {
+            QMenu menu(this);
+            bool hasSelection = false;
+
+            if (lineEdit) {
+                hasSelection = lineEdit->hasSelectedText();
+            } else if (textEdit) {
+                hasSelection = textEdit->textCursor().hasSelection();
+            } else if (plainEdit) {
+                hasSelection = plainEdit->textCursor().hasSelection();
+            }
+
+            auto* undoAction = menu.addAction(QStringLiteral("\u64a4\u9500 (Ctrl+Z)"));     // 撤销
+            auto* redoAction = menu.addAction(QStringLiteral("\u91cd\u505a (Ctrl+Y)"));     // 重做
+            menu.addSeparator();
+            auto* cutAction = menu.addAction(QStringLiteral("\u526a\u5207 (Ctrl+X)"));      // 剪切
+            cutAction->setEnabled(hasSelection);
+            auto* copyAction = menu.addAction(QStringLiteral("\u590d\u5236 (Ctrl+C)"));     // 复制
+            copyAction->setEnabled(hasSelection);
+            auto* pasteAction = menu.addAction(QStringLiteral("\u7c98\u8d34 (Ctrl+V)"));    // 粘贴
+            auto* deleteAction = menu.addAction(QStringLiteral("\u5220\u9664 (Del)"));       // 删除
+            deleteAction->setEnabled(hasSelection);
+            menu.addSeparator();
+            auto* selectAllAction = menu.addAction(QStringLiteral("\u5168\u9009 (Ctrl+A)")); // 全选
+
+            QAction* triggered = menu.exec(QCursor::pos());
+            if (!triggered) return true;
+
+            if (triggered == undoAction) {
+                if (lineEdit) lineEdit->undo();
+                else if (textEdit) textEdit->undo();
+                else if (plainEdit) plainEdit->undo();
+            } else if (triggered == redoAction) {
+                if (lineEdit) lineEdit->redo();
+                else if (textEdit) textEdit->redo();
+                else if (plainEdit) plainEdit->redo();
+            } else if (triggered == cutAction) {
+                if (lineEdit) lineEdit->cut();
+                else if (textEdit) textEdit->cut();
+                else if (plainEdit) plainEdit->cut();
+            } else if (triggered == copyAction) {
+                if (lineEdit) lineEdit->copy();
+                else if (textEdit) textEdit->copy();
+                else if (plainEdit) plainEdit->copy();
+            } else if (triggered == pasteAction) {
+                if (lineEdit) lineEdit->paste();
+                else if (textEdit) textEdit->paste();
+                else if (plainEdit) plainEdit->paste();
+            } else if (triggered == deleteAction) {
+                if (lineEdit) {
+                    lineEdit->del();
+                } else if (textEdit) {
+                    textEdit->textCursor().removeSelectedText();
+                } else if (plainEdit) {
+                    plainEdit->textCursor().removeSelectedText();
+                }
+            } else if (triggered == selectAllAction) {
+                if (lineEdit) lineEdit->selectAll();
+                else if (textEdit) textEdit->selectAll();
+                else if (plainEdit) plainEdit->selectAll();
+            }
+            return true; // Event handled
+        }
+    }
+    return QMainWindow::eventFilter(obj, event);
 }
 
 } // namespace mcclock::gui

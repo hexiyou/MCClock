@@ -11,6 +11,9 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QMessageBox>
+#include <QInputDialog>
+#include <QListWidget>
+#include <QLineEdit>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -19,6 +22,7 @@
 namespace mcclock::gui {
 
 using mcclock::services::AlarmService;
+using mcclock::services::AlarmGroupService;
 using mcclock::services::RingtoneManager;
 
 AlarmPage::AlarmPage(QWidget* parent)
@@ -56,8 +60,7 @@ void AlarmPage::setupUi() {
     toolbar->addWidget(sortCombo_);
 
     groupCombo_ = new QComboBox(this);
-    groupCombo_->addItem(QStringLiteral("\u5168\u90e8\u5206\u7ec4"), "all"); // 全部分组
-    groupCombo_->addItem(QStringLiteral("\u9ed8\u8ba4"), "default");         // 默认
+    refreshGroupCombo();
     toolbar->addWidget(groupCombo_);
     root->addLayout(toolbar);
 
@@ -66,7 +69,16 @@ void AlarmPage::setupUi() {
     connect(delBtn, &QPushButton::clicked, this, &AlarmPage::deleteSelected);
     connect(recycleBinBtn_, &QPushButton::clicked, this, &AlarmPage::toggleRecycleBinView);
     connect(sortCombo_, &QComboBox::currentIndexChanged, this, [this](int) { refresh(); });
-    connect(groupCombo_, &QComboBox::currentIndexChanged, this, [this](int) { refresh(); });
+    connect(groupCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        QString data = groupCombo_->itemData(index).toString();
+        if (data == "create") {
+            createGroup();
+        } else if (data == "manage") {
+            manageGroups();
+        } else {
+            refresh();
+        }
+    });
 
     // Table
     table_ = new QTableWidget(this);
@@ -81,7 +93,7 @@ void AlarmPage::setupUi() {
     });
     table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->verticalHeader()->setVisible(false);
     table_->setAlternatingRowColors(true);
@@ -197,19 +209,42 @@ void AlarmPage::editSelected() {
 }
 
 void AlarmPage::deleteSelected() {
-    int row = table_->currentRow();
-    if (row < 0) return;
-    QString uuid = table_->item(row, 1)->data(Qt::UserRole).toString();
+    QList<QTableWidgetItem*> selectedItems = table_->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    // Get unique rows from selected items
+    QSet<int> selectedRows;
+    for (auto* item : selectedItems) {
+        selectedRows.insert(item->row());
+    }
+    QList<int> rows = selectedRows.values();
+    int count = rows.size();
+
+    if (count == 0) return;
+
     AlarmService svc;
 
     if (recycleBinView_) {
         if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-                QStringLiteral("\u786e\u5b9a\u6c38\u4e45\u5220\u9664\u8be5\u95f9\u949f\uff1f")) // 确定永久删除该闹钟？
+                QStringLiteral("\u786e\u5b9a\u6c38\u4e45\u5220\u9664 %1 \u4e2a\u95f9\u949f\uff1f").arg(count)) // 确定永久删除 X 个闹钟？
             == QMessageBox::Yes) {
-            svc.hardDelete(uuid);
+            for (int row : rows) {
+                QString uuid = table_->item(row, 1)->data(Qt::UserRole).toString();
+                svc.hardDelete(uuid);
+            }
         }
     } else {
-        svc.moveToRecycleBin(uuid);
+        if (count == 1) {
+            svc.moveToRecycleBin(table_->item(rows.first(), 1)->data(Qt::UserRole).toString());
+        } else {
+            if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                    QStringLiteral("\u786e\u5b9a\u5c06 %1 \u4e2a\u95f9\u949f\u79fb\u5230\u56de\u6536\u7ad9\uff1f").arg(count)) // 确定将 X 个闹钟移到回收站？
+                == QMessageBox::Yes) {
+                for (int row : rows) {
+                    svc.moveToRecycleBin(table_->item(row, 1)->data(Qt::UserRole).toString());
+                }
+            }
+        }
     }
     refresh();
     emit dataChanged();
@@ -248,6 +283,114 @@ void AlarmPage::onEnableToggled(int row) {
     svc.setEnabled(uuid, !alarm.enabled);
     refresh();
     emit dataChanged();
+}
+
+void AlarmPage::refreshGroupCombo() {
+    groupCombo_->blockSignals(true);
+    groupCombo_->clear();
+    groupCombo_->addItem(QStringLiteral("\u5168\u90e8\u5206\u7ec4"), "all"); // 全部分组
+
+    // Load groups from database
+    auto groups = AlarmGroupService().findAll();
+    for (const auto& g : groups) {
+        groupCombo_->addItem(g.name, g.uuid);
+    }
+
+    // Add separator and management options
+    groupCombo_->insertSeparator(groupCombo_->count());
+    groupCombo_->addItem(QStringLiteral("\u2b50 \u521b\u5efa\u5206\u7ec4"), "create"); // 创建分组
+    groupCombo_->addItem(QStringLiteral("\u2699 \u7ba1\u7406\u5206\u7ec4"), "manage"); // 管理分组
+    groupCombo_->blockSignals(false);
+}
+
+void AlarmPage::createGroup() {
+    bool ok;
+    QString name = QInputDialog::getText(this, QStringLiteral("\u521b\u5efa\u5206\u7ec4"), // 创建分组
+        QStringLiteral("\u8bf7\u8f93\u5165\u5206\u7ec4\u540d\u79f0\uff1a"), // 请输入分组名称：
+        QLineEdit::Normal, QString(), &ok);
+
+    if (ok && !name.trimmed().isEmpty()) {
+        mcclock::models::AlarmGroup group;
+        group.name = name.trimmed();
+        AlarmGroupService().add(group);
+
+        // Refresh group combo and select the new group
+        refreshGroupCombo();
+        for (int i = 0; i < groupCombo_->count(); ++i) {
+            if (groupCombo_->itemText(i) == name.trimmed()) {
+                groupCombo_->setCurrentIndex(i);
+                break;
+            }
+        }
+    } else {
+        // Reset to previous selection
+        groupCombo_->setCurrentIndex(0);
+    }
+}
+
+void AlarmPage::manageGroups() {
+    auto groups = AlarmGroupService().findAll();
+    if (groups.isEmpty()) {
+        QMessageBox::information(this, QStringLiteral("\u7ba1\u7406\u5206\u7ec4"), // 管理分组
+            QStringLiteral("\u6ca1\u6709\u53ef\u7ba1\u7406\u7684\u5206\u7ec4")); // 没有可管理的分组
+        groupCombo_->setCurrentIndex(0);
+        return;
+    }
+
+    // Simple dialog to manage groups
+    QDialog dialog(this);
+    dialog.setWindowTitle(QStringLiteral("\u7ba1\u7406\u5206\u7ec4")); // 管理分组
+    dialog.setMinimumWidth(300);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    auto* listWidget = new QListWidget(&dialog);
+
+    for (const auto& g : groups) {
+        auto* item = new QListWidgetItem(g.name, listWidget);
+        item->setData(Qt::UserRole, g.uuid);
+    }
+    layout->addWidget(listWidget);
+
+    auto* btnLayout = new QHBoxLayout();
+    auto* renameBtn = new QPushButton(QStringLiteral("\u91cd\u547d\u540d"), &dialog); // 重命名
+    auto* deleteBtn = new QPushButton(QStringLiteral("\u5220\u9664"), &dialog);       // 删除
+    deleteBtn->setProperty("flatStyle", "danger");
+    btnLayout->addWidget(renameBtn);
+    btnLayout->addWidget(deleteBtn);
+    btnLayout->addStretch();
+    layout->addLayout(btnLayout);
+
+    connect(renameBtn, &QPushButton::clicked, [&]() {
+        auto* item = listWidget->currentItem();
+        if (!item) return;
+        QString uuid = item->data(Qt::UserRole).toString();
+        bool ok;
+        QString newName = QInputDialog::getText(&dialog, QStringLiteral("\u91cd\u547d\u540d\u5206\u7ec4"), // 重命名分组
+            QStringLiteral("\u65b0\u540d\u79f0\uff1a"), // 新名称：
+            QLineEdit::Normal, item->text(), &ok);
+        if (ok && !newName.trimmed().isEmpty()) {
+            AlarmGroupService().rename(uuid, newName.trimmed());
+            item->setText(newName.trimmed());
+        }
+    });
+
+    connect(deleteBtn, &QPushButton::clicked, [&]() {
+        auto* item = listWidget->currentItem();
+        if (!item) return;
+        QString uuid = item->data(Qt::UserRole).toString();
+        if (QMessageBox::question(&dialog, QStringLiteral("\u786e\u8ba4\u5220\u9664"), // 确认删除
+                QStringLiteral("\u5220\u9664\u5206\u7ec4\u540e\uff0c\u8be5\u5206\u7ec4\u4e0b\u7684\u95f9\u949f\u5c06\u79fb\u5230\u9ed8\u8ba4\u5206\u7ec4\uff0c\u662f\u5426\u7ee7\u7eed\uff1f")) // 删除分组后，该分组下的闹钟将移到默认分组，是否继续？
+            == QMessageBox::Yes) {
+            AlarmGroupService().remove(uuid);
+            delete item;
+        }
+    });
+
+    dialog.exec();
+
+    // Refresh and reset selection
+    refreshGroupCombo();
+    groupCombo_->setCurrentIndex(0);
 }
 
 } // namespace mcclock::gui

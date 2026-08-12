@@ -199,6 +199,7 @@ MCClock-CLI.exe <module> <action> [options]
 | 操作 | 说明 | 示例 |
 |------|------|------|
 | `list` | 列出所有闹钟 | `MCClock-CLI alarm list` |
+| `list --group <uuid>` | 按分组筛选闹钟 | `MCClock-CLI alarm list --group <uuid>` |
 | `list --json` | JSON格式输出 | `MCClock-CLI alarm list --json` |
 | `add` | 添加闹钟 | `MCClock-CLI alarm add --time 07:30 --label "起床" --cycle daily` |
 | `edit` | 编辑闹钟 | `MCClock-CLI alarm edit --uuid <uuid> --time 08:00` |
@@ -211,6 +212,10 @@ MCClock-CLI.exe <module> <action> [options]
 | `clear-recycle` | 清空回收站 | `MCClock-CLI alarm clear-recycle --yes` |
 | `export` | 导出到JSON | `MCClock-CLI alarm export --file alarms.json` |
 | `import` | 从JSON导入 | `MCClock-CLI alarm import --file alarms.json` |
+| `list-groups` | 列出所有分组 | `MCClock-CLI alarm list-groups` |
+| `add-group` | 创建新分组 | `MCClock-CLI alarm add-group --add-group "工作"` |
+| `rename-group` | 重命名分组 | `MCClock-CLI alarm rename-group --uuid <uuid> --rename-group "新名"` |
+| `remove-group` | 删除分组 | `MCClock-CLI alarm remove-group --uuid <uuid> --yes` |
 
 **闹钟选项：**
 - `--time <HH:mm>` - 触发时间
@@ -220,6 +225,7 @@ MCClock-CLI.exe <module> <action> [options]
 - `--ringtone <id>` - 铃声ID (1-8, 7=随机, 8=自定义)
 - `--ring-mode <m>` - 响铃模式：announce/continuous/once/silent/custom
 - `--custom-minutes <n>` - 自定义响铃时长(分钟)
+- `--group <uuid>` - 闹钟分组UUID
 
 #### birthday - 生日管理
 
@@ -390,6 +396,46 @@ curl -X POST http://localhost:8080/api/v1/alarms \
 **POST /api/v1/alarms/purge/{uuid}** - 彻底删除闹钟
 
 **POST /api/v1/alarms/clear-recycle** - 清空回收站
+
+#### 闹钟分组管理
+
+**GET /api/v1/alarm-groups** - 获取所有分组
+
+响应示例：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    {
+      "uuid": "default",
+      "name": "默认",
+      "sortOrder": 0,
+      "createdAt": "2026-08-12T00:00:00"
+    }
+  ]
+}
+```
+
+**POST /api/v1/alarm-groups** - 创建分组
+
+请求示例：
+```bash
+curl -X POST http://localhost:8080/api/v1/alarm-groups \
+  -H "Content-Type: application/json" \
+  -d '{"name": "工作"}'
+```
+
+**PUT /api/v1/alarm-groups/{uuid}** - 更新分组
+
+请求示例：
+```bash
+curl -X PUT http://localhost:8080/api/v1/alarm-groups/<uuid> \
+  -H "Content-Type: application/json" \
+  -d '{"name": "新名称"}'
+```
+
+**DELETE /api/v1/alarm-groups/{uuid}** - 删除分组（分组下闹钟自动移到默认分组）
 
 #### 生日管理
 

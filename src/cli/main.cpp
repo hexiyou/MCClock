@@ -153,11 +153,70 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
                 const QCommandLineOption& cycleDataOpt, const QCommandLineOption& fileOpt,
                 const QCommandLineOption& ringtoneOpt, const QCommandLineOption& ringModeOpt,
                 const QCommandLineOption& customMinutesOpt,
+                const QCommandLineOption& groupOpt,
+                const QCommandLineOption& listGroupsOpt,
+                const QCommandLineOption& addGroupOpt,
+                const QCommandLineOption& renameGroupOpt,
+                const QCommandLineOption& removeGroupOpt,
+                const QCommandLineOption& yesOpt,
                 bool jsonOutput) {
     AlarmService svc;
 
+    // Group management actions
+    if (action == "list-groups") {
+        auto groups = AlarmGroupService().findAll();
+        if (jsonOutput) {
+            QJsonArray arr;
+            for (const auto& g : groups) arr.push_back(g.toJson());
+            printJson(arr);
+        } else {
+            for (const auto& g : groups) {
+                out << g.uuid << "\t" << g.name << "\n";
+            }
+            out << "(" << groups.size() << " group(s))\n";
+        }
+        return 0;
+    }
+    if (action == "add-group") {
+        if (!p.isSet(addGroupOpt)) { errStream << "Error: --add-group requires a group name\n"; return 1; }
+        AlarmGroup g;
+        g.name = p.value(addGroupOpt);
+        auto saved = AlarmGroupService().add(g);
+        if (saved.uuid.isEmpty()) { errStream << "Error: failed to create group\n"; return 1; }
+        out << "Added group " << saved.uuid << " (" << saved.name << ")\n";
+        return 0;
+    }
+    if (action == "rename-group") {
+        if (!p.isSet(uuidOpt)) { errStream << "Error: --uuid is required\n"; return 1; }
+        if (!p.isSet(renameGroupOpt)) { errStream << "Error: --rename-group requires a new name\n"; return 1; }
+        if (AlarmGroupService().rename(p.value(uuidOpt), p.value(renameGroupOpt))) {
+            out << "Renamed group " << p.value(uuidOpt) << "\n";
+            return 0;
+        }
+        errStream << "Error: rename failed\n";
+        return 1;
+    }
+    if (action == "remove-group") {
+        if (!p.isSet(uuidOpt)) { errStream << "Error: --uuid is required\n"; return 1; }
+        if (!p.isSet(yesOpt)) {
+            out << "This will move all alarms in this group to 'default'. Continue? (use --yes to confirm)\n";
+            return 1;
+        }
+        if (AlarmGroupService().remove(p.value(uuidOpt))) {
+            out << "Removed group " << p.value(uuidOpt) << "\n";
+            return 0;
+        }
+        errStream << "Error: remove failed\n";
+        return 1;
+    }
+
     if (action.isEmpty() || action == "list") {
-        auto items = svc.findAll();
+        QList<Alarm> items;
+        if (p.isSet(groupOpt)) {
+            items = svc.findByGroup(p.value(groupOpt));
+        } else {
+            items = svc.findAll();
+        }
         if (jsonOutput) {
             QJsonArray arr;
             for (const auto& a : items) arr.push_back(a.toJson());
@@ -195,6 +254,8 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
             if (m >= 0) a.ringMode = m;
         }
         if (p.isSet(customMinutesOpt)) a.customMinutes = p.value(customMinutesOpt).toInt();
+        if (p.isSet(groupOpt)) a.groupId = p.value(groupOpt);
+        if (a.groupId.isEmpty()) a.groupId = "default";
         auto saved = svc.add(a);
         out << "Added alarm " << saved.uuid << "\n";
         return 0;
@@ -217,6 +278,7 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
             if (m >= 0) a.ringMode = m;
         }
         if (p.isSet(customMinutesOpt)) a.customMinutes = p.value(customMinutesOpt).toInt();
+        if (p.isSet(groupOpt)) a.groupId = p.value(groupOpt);
         if (svc.update(a)) { out << "Updated alarm " << a.uuid << "\n"; return 0; }
         errStream << "Error: update failed\n";
         return 1;
@@ -1045,11 +1107,18 @@ void printUsage() {
     out << "  --ringtone <id> Ringtone ID (1-8, 7=random, 8=custom)\n";
     out << "  --ring-mode <m> Ring mode: announce|continuous|once|silent|custom\n";
     out << "  --custom-minutes <n>  Custom ring duration (minutes)\n";
-    out << "  --gender <g>    Gender: male|female\n\n";
+    out << "  --gender <g>    Gender: male|female\n";
+    out << "  --group <uuid>  Alarm group UUID\n";
+    out << "  --list-groups   List all alarm groups\n";
+    out << "  --add-group <n> Add a new alarm group\n";
+    out << "  --rename-group <n> Rename an alarm group (requires --uuid)\n";
+    out << "  --remove-group  Remove an alarm group (requires --uuid --yes)\n\n";
     out << "Examples:\n";
     out << "  MCClock-CLI alarm list\n";
-    out << "  MCClock-CLI alarm add --time 07:30 --label \"Wake up\" --cycle daily\n";
+    out << "  MCClock-CLI alarm add --time 07:30 --label \"Wake up\" --cycle daily --group <uuid>\n";
     out << "  MCClock-CLI alarm list --json\n";
+    out << "  MCClock-CLI alarm list-groups\n";
+    out << "  MCClock-CLI alarm add-group --add-group \"Work\"\n";
     out << "  MCClock-CLI birthday add --name \"Mom\" --date 1965-03-20 --gender female\n";
     out << "  MCClock-CLI health get\n";
     out << "  MCClock-CLI health set enable work=30 rest=5\n";
@@ -1112,6 +1181,11 @@ int main(int argc, char* argv[]) {
     QCommandLineOption ringModeOpt("ring-mode", "Ring mode: announce|continuous|once|silent|custom", "mode");
     QCommandLineOption customMinutesOpt("custom-minutes", "Custom ring duration (minutes)", "n");
     QCommandLineOption genderOpt("gender", "Gender: male|female", "gender");
+    QCommandLineOption groupOpt("group", "Alarm group UUID", "groupId");
+    QCommandLineOption listGroupsOpt("list-groups", "List all alarm groups");
+    QCommandLineOption addGroupOpt("add-group", "Add a new alarm group", "name");
+    QCommandLineOption renameGroupOpt("rename-group", "Rename an alarm group", "name");
+    QCommandLineOption removeGroupOpt("remove-group", "Remove an alarm group");
 
     parser.addOption(jsonOpt);
     parser.addOption(uuidOpt);
@@ -1135,6 +1209,11 @@ int main(int argc, char* argv[]) {
     parser.addOption(ringModeOpt);
     parser.addOption(customMinutesOpt);
     parser.addOption(genderOpt);
+    parser.addOption(groupOpt);
+    parser.addOption(listGroupsOpt);
+    parser.addOption(addGroupOpt);
+    parser.addOption(renameGroupOpt);
+    parser.addOption(removeGroupOpt);
 
     parser.process(app);
 
@@ -1154,7 +1233,8 @@ int main(int argc, char* argv[]) {
     if (module == "alarm") {
         rc = handleAlarm(action, parser, uuidOpt, labelOpt, timeOpt, cycleOpt,
                          cycleDataOpt, fileOpt, ringtoneOpt, ringModeOpt,
-                         customMinutesOpt, jsonOutput);
+                         customMinutesOpt, groupOpt, listGroupsOpt, addGroupOpt,
+                         renameGroupOpt, removeGroupOpt, yesOpt, jsonOutput);
     } else if (module == "birthday") {
         rc = handleBirthday(action, parser, uuidOpt, nameOpt, dateOpt, lunarOpt,
                             remindTimeOpt, advanceOpt, labelOpt, fileOpt,

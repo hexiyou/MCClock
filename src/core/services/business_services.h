@@ -97,4 +97,16 @@ public:
     bool save(models::HealthSettings h);
 };
 
+// ── Alarm Group Service ──
+class AlarmGroupService {
+public:
+    models::AlarmGroup add(models::AlarmGroup group);
+    bool update(models::AlarmGroup group);
+    bool remove(const QString& uuid);
+    bool rename(const QString& uuid, const QString& newName);
+
+    models::AlarmGroup findByUuid(const QString& uuid);
+    QList<models::AlarmGroup> findAll();
+};
+
 } // namespace mcclock::services

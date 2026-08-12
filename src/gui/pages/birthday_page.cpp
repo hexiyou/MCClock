@@ -180,6 +180,7 @@ void BirthdayPage::setupUi() {
 
     list_ = new QListWidget(this);
     list_->setSpacing(4);
+    list_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     root->addWidget(list_, 1);
 
     auto* pagerRow = new QHBoxLayout();
@@ -305,14 +306,29 @@ void BirthdayPage::editSelected() {
 }
 
 void BirthdayPage::deleteSelected() {
-    QString uuid = BirthdayPage_selectedUuid(list_);
-    if (uuid.isEmpty()) return;
-    if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-            QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u751f\u65e5\uff1f")) == QMessageBox::Yes) { // 确定删除该生日？
-        BirthdayService().remove(uuid);
-        refresh();
-        emit dataChanged();
+    QList<QListWidgetItem*> selectedItems = list_->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    int count = selectedItems.size();
+    if (count == 0) return;
+
+    if (count == 1) {
+        QString uuid = selectedItems.first()->data(Qt::UserRole).toString();
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u751f\u65e5\uff1f")) == QMessageBox::Yes) { // 确定删除该生日？
+            BirthdayService().remove(uuid);
+        }
+    } else {
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u751f\u65e5\uff1f").arg(count)) // 确定删除 X 个生日？
+            == QMessageBox::Yes) {
+            for (auto* item : selectedItems) {
+                BirthdayService().remove(item->data(Qt::UserRole).toString());
+            }
+        }
     }
+    refresh();
+    emit dataChanged();
 }
 
 void BirthdayPage::prevPage() {

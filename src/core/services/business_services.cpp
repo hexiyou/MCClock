@@ -341,4 +341,54 @@ bool HealthService::save(models::HealthSettings h) {
     return dal::HealthSettingsDao().upsert(h);
 }
 
+// ── AlarmGroupService ──
+
+static void stampGroupNew(models::AlarmGroup& g) {
+    if (g.uuid.isEmpty()) g.uuid = utils::generateUuid();
+    QString now = utils::TimeUtils::nowISO8601();
+    if (g.createdAt.isEmpty()) g.createdAt = now;
+    g.lastModified = now;
+}
+
+models::AlarmGroup AlarmGroupService::add(models::AlarmGroup group) {
+    stampGroupNew(group);
+    group.syncStatus = static_cast<int>(models::SyncStatus::New);
+    dal::AlarmGroupDao dao;
+    if (!dao.insert(group)) group.uuid.clear();
+    return group;
+}
+
+bool AlarmGroupService::update(models::AlarmGroup group) {
+    group.lastModified = utils::TimeUtils::nowISO8601();
+    group.syncStatus = static_cast<int>(models::SyncStatus::Modified);
+    return dal::AlarmGroupDao().update(group);
+}
+
+bool AlarmGroupService::remove(const QString& uuid) {
+    // Move alarms in this group to default group
+    dal::AlarmDao alarmDao;
+    auto alarms = alarmDao.findByGroup(uuid);
+    for (auto& a : alarms) {
+        a.groupId = "default";
+        a.lastModified = utils::TimeUtils::nowISO8601();
+        alarmDao.update(a);
+    }
+    return dal::AlarmGroupDao().remove(uuid);
+}
+
+bool AlarmGroupService::rename(const QString& uuid, const QString& newName) {
+    auto group = dal::AlarmGroupDao().findByUuid(uuid);
+    if (group.uuid.isEmpty()) return false;
+    group.name = newName;
+    return update(group);
+}
+
+models::AlarmGroup AlarmGroupService::findByUuid(const QString& uuid) {
+    return dal::AlarmGroupDao().findByUuid(uuid);
+}
+
+QList<models::AlarmGroup> AlarmGroupService::findAll() {
+    return dal::AlarmGroupDao().findAll();
+}
+
 } // namespace mcclock::services

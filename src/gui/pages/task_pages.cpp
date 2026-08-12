@@ -140,7 +140,7 @@ void ShutdownPage::setupUi() {
     });
     table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->verticalHeader()->setVisible(false);
     table_->setAlternatingRowColors(true);
@@ -293,15 +293,36 @@ void ShutdownPage::editSelected() {
 }
 
 void ShutdownPage::deleteSelected() {
-    int row = table_->currentRow();
-    if (row < 0) return;
-    QString uuid = table_->item(row, 0)->data(Qt::UserRole).toString();
-    if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-            QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) { // 确定删除该任务？
-        ShutdownService().remove(uuid);
-        refresh();
-        emit dataChanged();
+    QList<QTableWidgetItem*> selectedItems = table_->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    // Get unique rows from selected items
+    QSet<int> selectedRows;
+    for (auto* item : selectedItems) {
+        selectedRows.insert(item->row());
     }
+    QList<int> rows = selectedRows.values();
+    int count = rows.size();
+
+    if (count == 0) return;
+
+    if (count == 1) {
+        QString uuid = table_->item(rows.first(), 0)->data(Qt::UserRole).toString();
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) { // 确定删除该任务？
+            ShutdownService().remove(uuid);
+        }
+    } else {
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u4efb\u52a1\uff1f").arg(count)) // 确定删除 X 个任务？
+            == QMessageBox::Yes) {
+            for (int row : rows) {
+                ShutdownService().remove(table_->item(row, 0)->data(Qt::UserRole).toString());
+            }
+        }
+    }
+    refresh();
+    emit dataChanged();
 }
 
 void ShutdownPage::executeSelected() {
@@ -356,7 +377,7 @@ void RunProgramPage::setupUi() {
     });
     table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
-    table_->setSelectionMode(QAbstractItemView::SingleSelection);
+    table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->verticalHeader()->setVisible(false);
     table_->setAlternatingRowColors(true);
@@ -490,15 +511,36 @@ void RunProgramPage::editSelected() {
 }
 
 void RunProgramPage::deleteSelected() {
-    int row = table_->currentRow();
-    if (row < 0) return;
-    QString uuid = table_->item(row, 0)->data(Qt::UserRole).toString();
-    if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-            QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) {
-        RunProgramService().remove(uuid);
-        refresh();
-        emit dataChanged();
+    QList<QTableWidgetItem*> selectedItems = table_->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    // Get unique rows from selected items
+    QSet<int> selectedRows;
+    for (auto* item : selectedItems) {
+        selectedRows.insert(item->row());
     }
+    QList<int> rows = selectedRows.values();
+    int count = rows.size();
+
+    if (count == 0) return;
+
+    if (count == 1) {
+        QString uuid = table_->item(rows.first(), 0)->data(Qt::UserRole).toString();
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) {
+            RunProgramService().remove(uuid);
+        }
+    } else {
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u4efb\u52a1\uff1f").arg(count)) // 确定删除 X 个任务？
+            == QMessageBox::Yes) {
+            for (int row : rows) {
+                RunProgramService().remove(table_->item(row, 0)->data(Qt::UserRole).toString());
+            }
+        }
+    }
+    refresh();
+    emit dataChanged();
 }
 
 void RunProgramPage::testRunSelected() {

@@ -38,9 +38,16 @@ QString ThemeManager::generateStyleSheet(const QColor& primaryColor) {
     QColor light = primaryColor.lighter(130);
     QColor hover = primaryColor.lighter(115);
     QColor pressed = primaryColor.darker(115);
-    QColor selectedBg = primaryColor.lighter(140);  // Less bright for better contrast
-    QColor selectedText = primaryColor.darker(150);
-    QColor accentText = primaryColor;
+
+    // Selection background: primary color with 15% opacity (alpha = 255 * 0.15 ≈ 38)
+    QColor selectedBg(primaryColor.red(), primaryColor.green(), primaryColor.blue(), 38);
+    QColor selectedText = QColor("#FFFFFF");  // White text for all selected items
+
+    // Build rgba string for selection background
+    QString selectedBgRgba = QString("rgba(%1, %2, %3, 0.15)").arg(
+        primaryColor.red()).arg(primaryColor.green()).arg(primaryColor.blue());
+    QString hoverRgba = QString("rgba(%1, %2, %3, 0.1)").arg(
+        primaryColor.red()).arg(primaryColor.green()).arg(primaryColor.blue());
 
     // Build stylesheet
     QString qss = QStringLiteral(R"(
@@ -154,9 +161,8 @@ QComboBox::drop-down {
 QComboBox QAbstractItemView {
     background-color: #FFFFFF;
     border: 1px solid #CFD8DC;
-    selection-background-color: #E3F2FD;
-    selection-color: #2B2F33;
-    outline: none;
+    selection-background-color: %1;
+    selection-color: #FFFFFF;
 }
 
 /* ── Spin box arrows ── */
@@ -236,9 +242,10 @@ QHeaderView::section {
     font-weight: bold;
 }
 
-QTableView::item:selected, QListView::item:selected {
-    background-color: %6;
-    color: %2;
+QTableView::item:selected, QListView::item:selected,
+QTableWidget::item:selected, QListWidget::item:selected {
+    background-color: %1;
+    color: #FFFFFF;
 }
 
 /* ── Tabs ── */
@@ -350,8 +357,8 @@ QMenu::item {
 }
 
 QMenu::item:selected {
-    background-color: %6;
-    color: %2;
+    background-color: %1;
+    color: #FFFFFF;
 }
 
 /* ── Dialog buttons area ── */
@@ -373,15 +380,94 @@ QLabel[hint="subtitle"] {
 QLabel[hint="accent"] {
     color: %1;
 }
+
+/* ── Calendar widget ── */
+QCalendarWidget {
+    background: #FFFFFF;
+}
+
+QCalendarWidget QWidget#qt_calendar_navigationbar {
+    background-color: %1;
+    padding: 4px;
+}
+
+QCalendarWidget QToolButton {
+    color: #FFFFFF;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    padding: 4px 8px;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+QCalendarWidget QToolButton:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+QCalendarWidget QToolButton:pressed {
+    background-color: rgba(0, 0, 0, 0.15);
+}
+
+QCalendarWidget QToolButton#qt_calendar_prevmonth,
+QCalendarWidget QToolButton#qt_calendar_nextmonth {
+    min-width: 24px;
+}
+
+QCalendarWidget QToolButton#qt_calendar_prevmonth:hover,
+QCalendarWidget QToolButton#qt_calendar_nextmonth:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+QCalendarWidget QAbstractItemView {
+    selection-background-color: %1;
+    selection-color: #FFFFFF;
+}
+
+/* ── Slider ── */
+QSlider::groove:horizontal {
+    border: none;
+    height: 6px;
+    background: #CFD8DC;
+    border-radius: 3px;
+}
+
+QSlider::sub-page:horizontal {
+    background: %1;
+    border-radius: 3px;
+}
+
+QSlider::add-page:horizontal {
+    background: #CFD8DC;
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    background: %1;
+    border: 2px solid #FFFFFF;
+    width: 16px;
+    height: 16px;
+    margin: -5px 0;
+    border-radius: 9px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: %4;
+}
+
+QSlider::handle:horizontal:pressed {
+    background: %2;
+}
 )")
     .arg(primaryColor.name())         // %1 - primary
     .arg(dark.name())                 // %2 - dark
     .arg(light.name())                // %3 - light
     .arg(hover.name())                // %4 - hover
     .arg(pressed.name())              // %5 - pressed
-    .arg(selectedBg.name())           // %6 - selected background
+    .arg(selectedBgRgba)              // %6 - selected background (rgba)
     .arg(selectedText.name())         // %7 - selected text
-    .arg(accentText.name());          // %8 - accent text
+    .arg(hoverRgba)                   // %8 - hover background (rgba)
+    .arg(selectedBgRgba);             // %9 - selection background duplicate
 
     return qss;
 }

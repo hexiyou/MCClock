@@ -1,5 +1,6 @@
 #include "alarm_dialog.h"
 #include "core/services/ringtone_manager.h"
+#include "core/services/business_services.h"
 #include "core/utils/time_utils.h"
 
 #include <QVBoxLayout>
@@ -207,6 +208,10 @@ void AlarmDialog::setupUi() {
     labelEdit_->setPlaceholderText(QStringLiteral("\u95f9\u949f\u5907\u6ce8\uff08\u53ef\u9009\uff09")); // 闹钟备注（可选）
     form->addRow(QStringLiteral("\u5907\u6ce8\uff1a"), labelEdit_); // 备注：
 
+    // Group selection
+    groupCombo_ = new QComboBox(this);
+    form->addRow(QStringLiteral("\u5206\u7ec4\uff1a"), groupCombo_); // 分组：
+
     root->addLayout(form);
     root->addStretch();
 
@@ -296,6 +301,21 @@ void AlarmDialog::loadFromModel() {
     ringModeCombo_->setCurrentIndex(ringModeCombo_->findData(alarm_.ringMode));
     customMinutesSpin_->setValue(alarm_.customMinutes > 0 ? alarm_.customMinutes : 1);
     labelEdit_->setText(alarm_.label);
+
+    // Load groups into combo box
+    groupCombo_->clear();
+    groupCombo_->addItem(QStringLiteral("\u9ed8\u8ba4\u5206\u7ec4"), "default"); // 默认分组
+    auto groups = mcclock::services::AlarmGroupService().findAll();
+    for (const auto& g : groups) {
+        groupCombo_->addItem(g.name, g.uuid);
+    }
+
+    // Select current group
+    QString groupId = alarm_.groupId.isEmpty() ? "default" : alarm_.groupId;
+    int groupIndex = groupCombo_->findData(groupId);
+    if (groupIndex >= 0) {
+        groupCombo_->setCurrentIndex(groupIndex);
+    }
 }
 
 QString AlarmDialog::buildCycleData() const {
@@ -369,6 +389,7 @@ void AlarmDialog::save() {
     alarm_.ringMode = ringModeCombo_->currentData().toInt();
     alarm_.customMinutes = customMinutesSpin_->value();
     alarm_.label = labelEdit_->text();
+    alarm_.groupId = groupCombo_->currentData().toString();
     if (alarm_.groupId.isEmpty()) alarm_.groupId = "default";
 
     accept();

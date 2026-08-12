@@ -272,6 +272,37 @@ public:
             else respondFail(res, "clear-recycle failed");
         });
 
+        // ── Alarm groups CRUD ──
+        svr_.Get("/api/v1/alarm-groups",
+                 [](const httplib::Request&, httplib::Response& res) {
+            respondOk(res, listToJson<AlarmGroup>(AlarmGroupService().findAll()));
+        });
+        svr_.Post("/api/v1/alarm-groups",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            auto body = json::parse(req.body, nullptr, false);
+            if (body.is_discarded()) { respondFail(res, "invalid JSON"); return; }
+            auto saved = AlarmGroupService().add(AlarmGroup::fromJson(jsonToQ(body)));
+            if (saved.uuid.isEmpty()) { respondFail(res, "add failed"); return; }
+            onChanged();
+            respondOk(res, qToJson(saved.toJson()));
+        });
+        svr_.Put(R"(/api/v1/alarm-groups/([^/]+))",
+                 [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            auto body = json::parse(req.body, nullptr, false);
+            if (body.is_discarded()) { respondFail(res, "invalid JSON"); return; }
+            auto group = AlarmGroup::fromJson(jsonToQ(body));
+            group.uuid = uuid;
+            if (AlarmGroupService().update(group)) { onChanged(); respondOk(res); }
+            else respondFail(res, "update failed");
+        });
+        svr_.Delete(R"(/api/v1/alarm-groups/([^/]+))",
+                    [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            if (AlarmGroupService().remove(uuid)) { onChanged(); respondOk(res); }
+            else respondFail(res, "delete failed");
+        });
+
         // ── Execute now ──
         svr_.Post(R"(/api/v1/run-programs/([^/]+)/run)",
                   [onChanged](const httplib::Request& req, httplib::Response& res) {

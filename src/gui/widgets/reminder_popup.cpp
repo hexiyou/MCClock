@@ -1,4 +1,5 @@
 #include "reminder_popup.h"
+#include "../theme_manager.h"
 #include "core/dal/settings_manager.h"
 
 #include <QVBoxLayout>
@@ -24,15 +25,19 @@ ReminderPopup::ReminderPopup(const QString& title, const QString& message, QWidg
 
 void ReminderPopup::paintEvent(QPaintEvent*) {
     // QSS backgrounds are not painted on translucent custom widgets,
-    // so draw the rounded blue card manually
+    // so draw the rounded card manually using current theme color
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(30, 136, 229)); // #1E88E5
+    QColor primaryColor = ThemeManager::currentPrimaryColor();
+    p.setBrush(primaryColor);
     p.drawRoundedRect(rect(), 8, 8);
 }
 
 void ReminderPopup::setupUi(const QString& title, const QString& message) {
+    QColor primaryColor = ThemeManager::currentPrimaryColor();
+    QColor darkColor = primaryColor.darker(130);
+
     setStyleSheet("ReminderPopup QLabel { color: white; background: transparent; }");
 
     auto* root = new QVBoxLayout(this);
@@ -51,9 +56,9 @@ void ReminderPopup::setupUi(const QString& title, const QString& message) {
     auto* btnBar = new QHBoxLayout();
     btnBar->addStretch();
     auto* dismissBtn = new QPushButton(QStringLiteral("\u6211\u77e5\u9053\u4e86"), this); // 我知道了
-    dismissBtn->setStyleSheet(
-        "QPushButton { background: white; color: #1E88E5; border-radius: 4px; padding: 6px 16px; }"
-        "QPushButton:hover { background: #E3F2FD; }");
+    dismissBtn->setStyleSheet(QString(
+        "QPushButton { background: white; color: %1; border-radius: 4px; padding: 6px 16px; }"
+        "QPushButton:hover { background: #E3F2FD; }").arg(primaryColor.name()));
     btnBar->addWidget(dismissBtn);
     root->addLayout(btnBar);
 

@@ -61,6 +61,7 @@ private:
     QComboBox* ringModeCombo_ = nullptr;
     QSpinBox* customMinutesSpin_ = nullptr;
     QLineEdit* labelEdit_ = nullptr;
+    QComboBox* groupCombo_ = nullptr;  // 分组选择下拉框
 };
 
 } // namespace mcclock::gui

@@ -32,6 +32,9 @@ private slots:
 
 private:
     void setupUi();
+    void refreshGroupCombo();
+    void createGroup();
+    void manageGroups();
     QString cycleDescription(const mcclock::models::Alarm& a) const;
 
     QTableWidget* table_ = nullptr;
