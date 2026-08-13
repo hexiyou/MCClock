@@ -31,6 +31,7 @@ private slots:
     void clearRecycleBin();
     void onCellDoubleClicked(int row, int column);
     void onEnableToggled(int row);
+    void onHeaderDoubleClicked(int logicalIndex);
 
 private:
     void setupUi();
@@ -48,6 +49,8 @@ private:
     QPushButton* restoreBtn_ = nullptr;
     QPushButton* clearRecycleBtn_ = nullptr;
     bool recycleBinView_ = false;
+    int sortColumn_ = -1;
+    Qt::SortOrder sortOrder_ = Qt::AscendingOrder;
 };
 
 } // namespace mcclock::gui

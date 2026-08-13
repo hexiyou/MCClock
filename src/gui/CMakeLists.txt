@@ -55,3 +55,15 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/resources/sounds")
         COMMENT "Copying sound resources to output directory"
     )
 endif()
+
+# Bundle Qt Chinese translation for standard dialogs (QFontDialog, etc.)
+set(QT_TRANS_DIR "C:/Qt/6.8.3/msvc2022_64/translations")
+if(EXISTS "${QT_TRANS_DIR}/qtbase_zh_CN.qm")
+    add_custom_command(TARGET MCClock POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:MCClock>/translations"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${QT_TRANS_DIR}/qtbase_zh_CN.qm"
+            "$<TARGET_FILE_DIR:MCClock>/translations/qtbase_zh_CN.qm"
+        COMMENT "Copying Qt Chinese translation to output directory"
+    )
+endif()

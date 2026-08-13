@@ -24,11 +24,14 @@ private slots:
     void editSelected();
     void deleteSelected();
     void executeSelected();
+    void onHeaderDoubleClicked(int logicalIndex);
 
 private:
     void setupUi();
 
     QTableWidget* table_ = nullptr;
+    int sortColumn_ = -1;
+    Qt::SortOrder sortOrder_ = Qt::AscendingOrder;
 };
 
 // Run program page: task list with program path + test-run.
@@ -47,11 +50,14 @@ private slots:
     void deleteSelected();
     void testRunSelected();
     void copySelected();
+    void onHeaderDoubleClicked(int logicalIndex);
 
 private:
     void setupUi();
 
     QTableWidget* table_ = nullptr;
+    int sortColumn_ = -1;
+    Qt::SortOrder sortOrder_ = Qt::AscendingOrder;
 };
 
 } // namespace mcclock::gui

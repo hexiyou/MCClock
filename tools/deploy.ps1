@@ -61,23 +61,35 @@ if (Test-Path $cliExe) {
 if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
 
 # ── 3. Sound resources (alarm ringtones + hourly chime voice files) ──
-Write-Host "[3/4] Copying sound resources ..."
+Write-Host "[3/5] Copying sound resources ..."
 $soundsSrc = Join-Path $root "resources\sounds"
 if (-not (Test-Path $soundsSrc)) { throw "Missing sound resources: $soundsSrc" }
 $soundsDst = Join-Path $deployDir "sounds"
-# Remove any stale copy first: Copy-Item would nest the source folder
-# inside an existing destination directory (sounds/sounds/...)
 if (Test-Path $soundsDst) { Remove-Item $soundsDst -Recurse -Force }
 Copy-Item $soundsSrc $soundsDst -Recurse -Force
 
-# ── 4. Zip package ──
+# ── 4. Qt Chinese translation (for QFontDialog and other standard dialogs) ──
+Write-Host "[4/5] Copying Qt translation ..."
+$transSrc = Join-Path $binDir "translations\qtbase_zh_CN.qm"
+if (Test-Path $transSrc) {
+    $transDstDir = Join-Path $deployDir "translations"
+    if (-not (Test-Path $transDstDir)) { New-Item -ItemType Directory -Path $transDstDir -Force | Out-Null }
+    Copy-Item $transSrc (Join-Path $transDstDir "qtbase_zh_CN.qm") -Force
+} else {
+    Write-Host "  Warning: $transSrc not found, skipping translation"
+}
+
+# ── 5. Zip package ──
 $stamp = Get-Date -Format "yyyyMMdd-HHmm"
 $zipPath = Join-Path $root "MCClock-deploy-$stamp.zip"
-Write-Host "[4/4] Creating $zipPath ..."
+Write-Host "[5/5] Creating $zipPath ..."
 Compress-Archive -Path (Join-Path $deployDir "*") -DestinationPath $zipPath -Force
 
 Write-Host ""
 Write-Host "Deployment ready:"
-Write-Host "  Folder : $deployDir"
-Write-Host "  Zip    : $zipPath"
-Write-Host "  Sounds : $( (Get-ChildItem (Join-Path $deployDir 'sounds')).Count ) files bundled"
+Write-Host "  Folder      : $deployDir"
+Write-Host "  Zip         : $zipPath"
+Write-Host "  Sounds      : $( (Get-ChildItem (Join-Path $deployDir 'sounds')).Count ) files bundled"
+if (Test-Path (Join-Path $deployDir "translations")) {
+    Write-Host "  Translation : $( (Get-ChildItem (Join-Path $deployDir 'translations')).Count ) files bundled"
+}

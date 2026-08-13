@@ -100,6 +100,8 @@ void CountdownPage::setupUi() {
     connect(startBtn, &QPushButton::clicked, this, &CountdownPage::startStopSelected);
     connect(resetBtn, &QPushButton::clicked, this, &CountdownPage::resetSelected);
     connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int, int) { startStopSelected(); });
+    connect(table_->horizontalHeader(), &QHeaderView::sectionDoubleClicked,
+            this, &CountdownPage::onHeaderDoubleClicked);
 }
 
 void CountdownPage::refresh() {
@@ -376,6 +378,18 @@ void CountdownPage::finishCountdown(models::Countdown c) {
     });
     popup->setAttribute(Qt::WA_DeleteOnClose);
     popup->showAtConfiguredPosition();
+}
+
+void CountdownPage::onHeaderDoubleClicked(int logicalIndex) {
+    if (sortColumn_ == logicalIndex) {
+        sortOrder_ = (sortOrder_ == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+    } else {
+        sortColumn_ = logicalIndex;
+        sortOrder_ = Qt::AscendingOrder;
+    }
+    table_->setSortingEnabled(true);
+    table_->sortItems(sortColumn_, sortOrder_);
+    table_->setSortingEnabled(false);
 }
 
 } // namespace mcclock::gui

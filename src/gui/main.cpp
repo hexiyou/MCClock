@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QDialogButtonBox>
+#include <QTranslator>
 
 #include "main_window.h"
 #include "theme_manager.h"
@@ -70,7 +71,21 @@ int main(int argc, char* argv[]) {
     app.setApplicationName("MCClock");
     app.setApplicationVersion("1.0.0");
     app.setOrganizationName("MCClock");
-    app.setQuitOnLastWindowClosed(false); // Keep running in tray
+    app.setQuitOnLastWindowClosed(false);
+
+    // Load Qt Chinese translation for standard dialogs (QFontDialog, etc.)
+    auto* qtTranslator = new QTranslator(&app);
+    if (qtTranslator->load(QLocale::Chinese,QLatin1String("qtbase"),QLatin1String("_"),
+                           app.applicationDirPath() +QLatin1String("/translations"))) {
+        app.installTranslator(qtTranslator);
+    } else {
+        // Fallback: try Qt's own translations directory
+        if (qtTranslator->load(QLatin1String("qtbase_zh_CN"),QLatin1String("/C:/Qt/6.8.3/msvc2022_64/translations"))) {
+            app.installTranslator(qtTranslator);
+        } else {
+            delete qtTranslator;
+        }
+    }
 
     QCommandLineParser parser;
     parser.setApplicationDescription("MCClock - \u68a6\u7545\u95f9\u949f"); // 梦畅闹钟

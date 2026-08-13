@@ -41,3 +41,8 @@ desktop.ini
 *.bak
 *.swp
 *~
+
+# Deployment artifacts
+deploy/
+*.zip
+stderr.log

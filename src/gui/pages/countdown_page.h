@@ -29,6 +29,7 @@ private slots:
     void startStopSelected();
     void resetSelected();
     void onTick();
+    void onHeaderDoubleClicked(int logicalIndex);
 
 private:
     void setupUi();
@@ -39,6 +40,8 @@ private:
     QTableWidget* table_ = nullptr;
     QTimer* tickTimer_ = nullptr;
     mcclock::services::RingtoneManager* ringtone_ = nullptr;
+    int sortColumn_ = -1;
+    Qt::SortOrder sortOrder_ = Qt::AscendingOrder;
 };
 
 } // namespace mcclock::gui

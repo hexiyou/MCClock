@@ -120,6 +120,8 @@ void AlarmPage::setupUi() {
     root->addWidget(table_, 1);
 
     connect(table_, &QTableWidget::cellDoubleClicked, this, &AlarmPage::onCellDoubleClicked);
+    connect(table_->horizontalHeader(), &QHeaderView::sectionDoubleClicked,
+            this, &AlarmPage::onHeaderDoubleClicked);
     connect(table_, &QTableWidget::cellClicked, this, [this](int row, int col) {
         if (col == 0) onEnableToggled(row);
     });
@@ -488,6 +490,18 @@ void AlarmPage::manageGroups() {
     // Refresh and reset selection
     refreshGroupCombo();
     groupCombo_->setCurrentIndex(0);
+}
+
+void AlarmPage::onHeaderDoubleClicked(int logicalIndex) {
+    if (sortColumn_ == logicalIndex) {
+        sortOrder_ = (sortOrder_ == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+    } else {
+        sortColumn_ = logicalIndex;
+        sortOrder_ = Qt::AscendingOrder;
+    }
+    table_->setSortingEnabled(true);
+    table_->sortItems(sortColumn_, sortOrder_);
+    table_->setSortingEnabled(false);
 }
 
 } // namespace mcclock::gui

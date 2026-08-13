@@ -361,6 +361,8 @@ void ShutdownPage::setupUi() {
     connect(delBtn, &QPushButton::clicked, this, &ShutdownPage::deleteSelected);
     connect(runBtn, &QPushButton::clicked, this, &ShutdownPage::executeSelected);
     connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int, int) { editSelected(); });
+    connect(table_->horizontalHeader(), &QHeaderView::sectionDoubleClicked,
+            this, &ShutdownPage::onHeaderDoubleClicked);
 }
 
 void ShutdownPage::refresh() {
@@ -605,6 +607,8 @@ void RunProgramPage::setupUi() {
     connect(copyBtn, &QPushButton::clicked, this, &RunProgramPage::copySelected);
     connect(testBtn, &QPushButton::clicked, this, &RunProgramPage::testRunSelected);
     connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int, int) { editSelected(); });
+    connect(table_->horizontalHeader(), &QHeaderView::sectionDoubleClicked,
+            this, &RunProgramPage::onHeaderDoubleClicked);
 }
 
 void RunProgramPage::refresh() {
@@ -810,6 +814,30 @@ void RunProgramPage::copySelected() {
     svc.add(t);
     refresh();
     emit dataChanged();
+}
+
+void ShutdownPage::onHeaderDoubleClicked(int logicalIndex) {
+    if (sortColumn_ == logicalIndex) {
+        sortOrder_ = (sortOrder_ == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+    } else {
+        sortColumn_ = logicalIndex;
+        sortOrder_ = Qt::AscendingOrder;
+    }
+    table_->setSortingEnabled(true);
+    table_->sortItems(sortColumn_, sortOrder_);
+    table_->setSortingEnabled(false);
+}
+
+void RunProgramPage::onHeaderDoubleClicked(int logicalIndex) {
+    if (sortColumn_ == logicalIndex) {
+        sortOrder_ = (sortOrder_ == Qt::AscendingOrder) ? Qt::DescendingOrder : Qt::AscendingOrder;
+    } else {
+        sortColumn_ = logicalIndex;
+        sortOrder_ = Qt::AscendingOrder;
+    }
+    table_->setSortingEnabled(true);
+    table_->sortItems(sortColumn_, sortOrder_);
+    table_->setSortingEnabled(false);
 }
 
 } // namespace mcclock::gui
