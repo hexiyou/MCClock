@@ -363,6 +363,16 @@ void SettingsDialog::exportAllData() {
     // Export settings
     root["settings"] = mcclock::dal::SettingsManager::instance().rootObject();
 
+    // Export sticky notes
+    QString stickyPath = mcclock::utils::PlatformUtils::appDataPath() + "/sticky_notes.json";
+    if (QFile::exists(stickyPath)) {
+        QFile sf(stickyPath);
+        if (sf.open(QIODevice::ReadOnly)) {
+            QJsonObject stickyObj = QJsonDocument::fromJson(sf.readAll()).object();
+            root["sticky_notes"] = stickyObj;
+        }
+    }
+
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
         QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
@@ -510,6 +520,15 @@ void SettingsDialog::importAllData() {
             s.set({it.key()}, it.value());
         }
         s.save();
+    }
+
+    // Import sticky notes
+    if (root.contains("sticky_notes")) {
+        QString stickyPath = mcclock::utils::PlatformUtils::appDataPath() + "/sticky_notes.json";
+        QFile sf(stickyPath);
+        if (sf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            sf.write(QJsonDocument(root["sticky_notes"].toObject()).toJson());
+        }
     }
 
     QMessageBox::information(this, QStringLiteral("\u6210\u529f"), // 成功

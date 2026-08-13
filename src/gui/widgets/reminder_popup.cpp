@@ -45,12 +45,12 @@ void ReminderPopup::setupUi(const QString& title, const QString& message) {
     root->setSpacing(8);
 
     auto* titleLabel = new QLabel(title, this);
-    titleLabel->setStyleSheet("font-size: 16px; font-weight: bold;");
+    titleLabel->setStyleSheet("color: white; font-size: 16px; font-weight: bold;");
     root->addWidget(titleLabel);
 
     auto* msgLabel = new QLabel(message, this);
     msgLabel->setWordWrap(true);
-    msgLabel->setStyleSheet("font-size: 13px;");
+    msgLabel->setStyleSheet("color: white; font-size: 13px;");
     root->addWidget(msgLabel, 1);
 
     auto* btnBar = new QHBoxLayout();

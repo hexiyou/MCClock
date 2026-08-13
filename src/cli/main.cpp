@@ -1032,7 +1032,7 @@ int handleSystem(const QString& action, QCommandLineParser& p,
         mcclock::dal::Database::instance().execute("PRAGMA wal_checkpoint(TRUNCATE);");
 
         QStringList files;
-        for (const QString& name : {QStringLiteral("mcclock.db"), QStringLiteral("settings.json")}) {
+        for (const QString& name : {QStringLiteral("mcclock.db"), QStringLiteral("settings.json"), QStringLiteral("sticky_notes.json")}) {
             if (QFile::exists(dataDir + "/" + name)) files << name;
         }
         if (files.isEmpty()) { errStream << "Error: no data to back up\n"; return 1; }
