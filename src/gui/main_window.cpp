@@ -19,6 +19,7 @@
 #include "core/services/ringtone_manager.h"
 #include "core/services/business_services.h"
 #include "core/dal/settings_manager.h"
+#include "core/utils/platform_utils.h"
 #include "api_server.h"
 
 #include <QVBoxLayout>
@@ -41,6 +42,9 @@ namespace mcclock::gui {
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
+    // Save start time for uptime tracking (shared with CLI/API)
+    mcclock::utils::PlatformUtils::saveStartTime();
+
     setWindowTitle(QStringLiteral("\u68a6\u7545\u95f9\u949f")); // 梦畅闹钟
     setWindowIcon(ThemeManager::appIcon());
     setFixedSize(860, 480);

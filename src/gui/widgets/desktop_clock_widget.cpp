@@ -71,8 +71,9 @@ void DesktopClockWidget::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void DesktopClockWidget::setSize(int size) {
-    size_ = qBound(0, size, 2);
+    size_ = qBound(0, size, 3);
     static const struct { int w, h, timePx, datePx; } kSizes[] = {
+        {400, 148, 60, 18}, // extra large
         {300, 112, 46, 15}, // large
         {220, 84, 34, 13},  // medium
         {180, 64, 24, 11},  // small
@@ -92,13 +93,14 @@ void DesktopClockWidget::contextMenuEvent(QContextMenuEvent* e) {
     auto* showMain = menu.addAction(QStringLiteral("\u663e\u793a\u8f6f\u4ef6\u4e3b\u754c\u9762")); // 显示软件主界面
     auto* closeClock = menu.addAction(QStringLiteral("\u5173\u95ed\u684c\u9762\u65f6\u949f"));   // 关闭桌面时钟
 
-    // 窗口尺寸 submenu: 大 / 中 / 小
+    // 窗口尺寸 submenu: 特大 / 大 / 中 / 小
     auto* sizeMenu = menu.addMenu(QStringLiteral("\u7a97\u53e3\u5c3a\u5bf8"));
     auto* group = new QActionGroup(sizeMenu);
     const QStringList sizeNames = {
-        QStringLiteral("\u5927"), // 大
-        QStringLiteral("\u4e2d"), // 中
-        QStringLiteral("\u5c0f"), // 小
+        QStringLiteral("\u7279\u5927"), // 特大
+        QStringLiteral("\u5927"),       // 大
+        QStringLiteral("\u4e2d"),       // 中
+        QStringLiteral("\u5c0f"),       // 小
     };
     for (int i = 0; i < sizeNames.size(); ++i) {
         auto* a = sizeMenu->addAction(sizeNames[i]);

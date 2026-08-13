@@ -953,6 +953,7 @@ int handleSystem(const QString& action, QCommandLineParser& p,
         info["app"] = "MCClock";
         info["version"] = QCoreApplication::applicationVersion();
         info["datetime"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+        info["uptime"] = PlatformUtils::uptimeString();
         info["database"] = PlatformUtils::databasePath();
         info["settings"] = PlatformUtils::settingsPath();
         info["autoStart"] = PlatformUtils::isAutoStartEnabled();
@@ -960,6 +961,7 @@ int handleSystem(const QString& action, QCommandLineParser& p,
         else {
             out << "App:        MCClock " << info["version"].toString() << "\n";
             out << "Time:       " << info["datetime"].toString() << "\n";
+            out << "Uptime:     " << info["uptime"].toString() << "\n";
             out << "Database:   " << info["database"].toString() << "\n";
             out << "Settings:   " << info["settings"].toString() << "\n";
             out << "Auto-start: " << (info["autoStart"].toBool() ? "enabled" : "disabled") << "\n";

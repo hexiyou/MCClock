@@ -2,6 +2,7 @@
 #include "core/services/business_services.h"
 #include "core/services/scheduler.h"
 #include "core/dal/settings_manager.h"
+#include "core/utils/platform_utils.h"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -369,6 +370,7 @@ public:
             data["app"] = "MCClock";
             data["version"] = QCoreApplication::applicationVersion().toStdString();
             data["time"] = QDateTime::currentDateTime().toString(Qt::ISODate).toStdString();
+            data["uptime"] = mcclock::utils::PlatformUtils::uptimeString().toStdString();
             respondOk(res, data);
         });
     }

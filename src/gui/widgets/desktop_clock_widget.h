@@ -12,7 +12,7 @@ class DesktopClockWidget : public QWidget {
 public:
     explicit DesktopClockWidget(QWidget* parent = nullptr);
 
-    // 0 = large, 1 = medium (default), 2 = small
+    // 0 = extra large, 1 = large, 2 = medium (default), 3 = small
     void setSize(int size);
     int size() const { return size_; }
 

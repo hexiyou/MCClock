@@ -35,6 +35,9 @@ struct CycleEditor {
     QComboBox* combo = nullptr;
     QDateEdit* onceDateEdit = nullptr;   // date for "run once" mode
     QLineEdit* weeklineEdit = nullptr; // e.g. "1,3,5" (1=Mon..7=Sun)
+    QSpinBox* intervalHourSpin = nullptr;
+    QSpinBox* intervalMinSpin = nullptr;
+    QSpinBox* intervalSecSpin = nullptr;
 
     QWidget* create(QWidget* parent) {
         auto* w = new QWidget(parent);
@@ -44,6 +47,7 @@ struct CycleEditor {
         combo->addItem(QStringLiteral("\u53ea\u6267\u884c\u4e00\u6b21"), 0); // 只执行一次
         combo->addItem(QStringLiteral("\u6bcf\u5929"), 1);                   // 每天
         combo->addItem(QStringLiteral("\u6bcf\u5468"), 2);                   // 每周
+        combo->addItem(QStringLiteral("\u6bcf\u9694..."), 3);                // 每隔...
         layout->addWidget(combo);
         onceDateEdit = new QDateEdit(w);
         onceDateEdit->setDisplayFormat("yyyy-MM-dd");
@@ -53,21 +57,54 @@ struct CycleEditor {
         weeklineEdit->setPlaceholderText(QStringLiteral("\u661f\u671f\uff0c\u5982 1,3,5\uff081=\u5468\u4e00\uff09")); // 星期，如 1,3,5（1=周一）
         weeklineEdit->setVisible(false);
         layout->addWidget(weeklineEdit, 1);
-        QObject::connect(combo, &QComboBox::currentIndexChanged, w, [this](int idx) {
+
+        // Interval spin boxes
+        auto* intervalWidget = new QWidget(w);
+        auto* intervalLayout = new QHBoxLayout(intervalWidget);
+        intervalLayout->setContentsMargins(0, 0, 0, 0);
+        intervalHourSpin = new QSpinBox(intervalWidget);
+        intervalHourSpin->setRange(0, 99);
+        intervalHourSpin->setSuffix(QStringLiteral(" \u65f6")); // 时
+        intervalMinSpin = new QSpinBox(intervalWidget);
+        intervalMinSpin->setRange(0, 59);
+        intervalMinSpin->setSuffix(QStringLiteral(" \u5206")); // 分
+        intervalSecSpin = new QSpinBox(intervalWidget);
+        intervalSecSpin->setRange(0, 59);
+        intervalSecSpin->setSuffix(QStringLiteral(" \u79d2")); // 秒
+        intervalLayout->addWidget(intervalHourSpin);
+        intervalLayout->addWidget(intervalMinSpin);
+        intervalLayout->addWidget(intervalSecSpin);
+        intervalWidget->setVisible(false);
+        layout->addWidget(intervalWidget);
+
+        QObject::connect(combo, &QComboBox::currentIndexChanged, w, [this, intervalWidget](int idx) {
             onceDateEdit->setVisible(idx == 0);
             weeklineEdit->setVisible(idx == 2);
+            intervalWidget->setVisible(idx == 3);
         });
         return w;
     }
 
     void load(int cycleMode, const QString& cycleData) {
-        combo->setCurrentIndex(cycleMode >= 0 && cycleMode <= 2 ? cycleMode : 0);
         QJsonObject cd = QJsonDocument::fromJson(cycleData.toUtf8()).object();
-        QDate d = QDate::fromString(cd.value("date").toString(), "yyyy-MM-dd");
-        onceDateEdit->setDate(d.isValid() ? d : QDate::currentDate());
-        QStringList parts;
-        for (const auto& v : cd.value("weekdays").toArray()) parts << QString::number(v.toInt());
-        weeklineEdit->setText(parts.join(","));
+        if (cycleMode == 3) {
+            combo->setCurrentIndex(3);
+            onceDateEdit->setVisible(false);
+            weeklineEdit->setVisible(false);
+            int hours = cd.value("interval_hours").toInt();
+            int minutes = cd.value("interval_minutes").toInt();
+            int seconds = cd.value("interval_seconds").toInt();
+            intervalHourSpin->setValue(hours);
+            intervalMinSpin->setValue(minutes);
+            intervalSecSpin->setValue(seconds);
+        } else {
+            combo->setCurrentIndex(cycleMode >= 0 && cycleMode <= 2 ? cycleMode : 0);
+            QDate d = QDate::fromString(cd.value("date").toString(), "yyyy-MM-dd");
+            onceDateEdit->setDate(d.isValid() ? d : QDate::currentDate());
+            QStringList parts;
+            for (const auto& v : cd.value("weekdays").toArray()) parts << QString::number(v.toInt());
+            weeklineEdit->setText(parts.join(","));
+        }
     }
 
     QString buildCycleData(int& mode) const {
@@ -83,6 +120,10 @@ struct CycleEditor {
                 if (ok && d >= 1 && d <= 7) arr.append(d);
             }
             cd["weekdays"] = arr;
+        } else if (mode == 3) {
+            cd["interval_hours"] = intervalHourSpin->value();
+            cd["interval_minutes"] = intervalMinSpin->value();
+            cd["interval_seconds"] = intervalSecSpin->value();
         }
         return QString::fromUtf8(QJsonDocument(cd).toJson(QJsonDocument::Compact));
     }
@@ -94,6 +135,17 @@ struct CycleEditor {
             QStringList parts;
             for (const auto& v : cd.value("weekdays").toArray()) parts << QString::number(v.toInt());
             return QStringLiteral("\u5468 ") + parts.join(","); // 周 X,X
+        }
+        if (mode == 3) {
+            QJsonObject cd = QJsonDocument::fromJson(cycleData.toUtf8()).object();
+            int h = cd.value("interval_hours").toInt();
+            int m = cd.value("interval_minutes").toInt();
+            int s = cd.value("interval_seconds").toInt();
+            QStringList parts;
+            if (h > 0) parts << QStringLiteral("%1\u65f6").arg(h);
+            if (m > 0) parts << QStringLiteral("%1\u5206").arg(m);
+            if (s > 0) parts << QStringLiteral("%1\u79d2").arg(s);
+            return QStringLiteral("\u6bcf\u9694 ") + parts.join(""); // 每隔 X时X分X秒
         }
         return QStringLiteral("\u4e00\u6b21"); // 一次
     }

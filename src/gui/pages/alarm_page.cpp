@@ -51,6 +51,17 @@ void AlarmPage::setupUi() {
     toolbar->addWidget(editBtn);
     toolbar->addWidget(delBtn);
     toolbar->addWidget(recycleBinBtn_);
+
+    restoreBtn_ = new QPushButton(QStringLiteral("\u8fd8\u539f"), this); // 还原
+    restoreBtn_->setProperty("flatStyle", "success");
+    restoreBtn_->setVisible(false);
+    toolbar->addWidget(restoreBtn_);
+
+    clearRecycleBtn_ = new QPushButton(QStringLiteral("\u6e05\u7a7a\u56de\u6536\u7ad9"), this); // 清空回收站
+    clearRecycleBtn_->setProperty("flatStyle", "danger");
+    clearRecycleBtn_->setVisible(false);
+    toolbar->addWidget(clearRecycleBtn_);
+
     toolbar->addStretch();
 
     sortCombo_ = new QComboBox(this);
@@ -68,6 +79,8 @@ void AlarmPage::setupUi() {
     connect(editBtn, &QPushButton::clicked, this, &AlarmPage::editSelected);
     connect(delBtn, &QPushButton::clicked, this, &AlarmPage::deleteSelected);
     connect(recycleBinBtn_, &QPushButton::clicked, this, &AlarmPage::toggleRecycleBinView);
+    connect(restoreBtn_, &QPushButton::clicked, this, &AlarmPage::restoreSelected);
+    connect(clearRecycleBtn_, &QPushButton::clicked, this, &AlarmPage::clearRecycleBin);
     connect(sortCombo_, &QComboBox::currentIndexChanged, this, [this](int) { refresh(); });
     connect(groupCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
         QString data = groupCombo_->itemData(index).toString();
@@ -255,7 +268,38 @@ void AlarmPage::toggleRecycleBinView() {
     recycleBinBtn_->setText(recycleBinView_
         ? QStringLiteral("\u8fd4\u56de\u5217\u8868")       // 返回列表
         : QStringLiteral("\u56de\u6536\u7ad9"));            // 回收站
+    restoreBtn_->setVisible(recycleBinView_);
+    clearRecycleBtn_->setVisible(recycleBinView_);
     refresh();
+}
+
+void AlarmPage::restoreSelected() {
+    QList<QTableWidgetItem*> selectedItems = table_->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QSet<int> selectedRows;
+    for (auto* item : selectedItems) {
+        selectedRows.insert(item->row());
+    }
+    QList<int> rows = selectedRows.values();
+    int count = rows.size();
+
+    if (count == 0) return;
+
+    AlarmService svc;
+    if (count == 1) {
+        svc.restore(table_->item(rows.first(), 1)->data(Qt::UserRole).toString());
+    } else {
+        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u8fd8\u539f %1 \u4e2a\u95f9\u949f\uff1f").arg(count))
+            == QMessageBox::Yes) {
+            for (int row : rows) {
+                svc.restore(table_->item(row, 1)->data(Qt::UserRole).toString());
+            }
+        }
+    }
+    refresh();
+    emit dataChanged();
 }
 
 void AlarmPage::clearRecycleBin() {

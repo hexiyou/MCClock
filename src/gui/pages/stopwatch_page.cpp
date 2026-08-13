@@ -136,11 +136,8 @@ void StopwatchPage::onReset() {
 }
 
 void StopwatchPage::onLap() {
-    qint64 total = stopwatch_->lap();
-    int index = stopwatch_->laps().size();
-    qint64 prev = index >= 2 ? stopwatch_->laps()[index - 2] : 0;
-    lapList_->insertItem(0, QStringLiteral("\u7b2c %1 \u5708  %2  \uff08\u672c\u5708 %3\uff09")
-        .arg(index).arg(formatMs(total)).arg(formatMs(total - prev))); // 第 N 圈  总计（本圈 X）
+    stopwatch_->lap();
+    // Lap display is handled by the lapped signal connection
 }
 
 void StopwatchPage::onCopy() {

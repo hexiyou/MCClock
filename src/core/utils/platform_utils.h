@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QProcess>
 #include <QCoreApplication>
+#include <QDateTime>
 
 #include <string>
 
@@ -18,6 +19,46 @@ namespace mcclock::utils {
 
 class PlatformUtils {
 public:
+    // Application start time file path
+    static QString startTimeFilePath() {
+        return appDataPath() + "/.start_time";
+    }
+
+    // Save start time to file (called by GUI at startup)
+    static void saveStartTime() {
+        QFile f(startTimeFilePath());
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            f.write(QDateTime::currentDateTime().toString(Qt::ISODate).toUtf8());
+            f.close();
+        }
+    }
+
+    // Application start time - reads from shared file for cross-process consistency
+    static QDateTime applicationStartTime() {
+        QFile f(startTimeFilePath());
+        if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QDateTime dt = QDateTime::fromString(f.readAll().trimmed(), Qt::ISODate);
+            f.close();
+            if (dt.isValid()) return dt;
+        }
+        // Fallback: no file found, use current time
+        return QDateTime::currentDateTime();
+    }
+
+    // Get uptime string in English format like "2h 15m 30s"
+    static QString uptimeString() {
+        qint64 secs = applicationStartTime().secsTo(QDateTime::currentDateTime());
+        if (secs < 0) secs = 0;
+        int h = secs / 3600;
+        int m = (secs % 3600) / 60;
+        int s = secs % 60;
+        QStringList parts;
+        if (h > 0) parts << QStringLiteral("%1h").arg(h);
+        if (m > 0) parts << QStringLiteral("%1m").arg(m);
+        parts << QStringLiteral("%1s").arg(s);
+        return parts.join(" ");
+    }
+
     // Get application data directory: %APPDATA%/MCClock/
     static QString appDataPath() {
         QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
