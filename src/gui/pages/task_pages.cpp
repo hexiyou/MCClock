@@ -2,6 +2,7 @@
 #include "core/services/business_services.h"
 #include "core/services/cycle_utils.h"
 #include "core/utils/platform_utils.h"
+#include "gui/theme_manager.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -120,26 +121,52 @@ struct CycleEditor {
 
         // Row 3: Date range
         auto* dateRow = new QHBoxLayout();
-        dateRow->setSpacing(8);
+        dateRow->setSpacing(4);
         intervalStartEdit = new QDateEdit(intervalWidget);
         intervalStartEdit->setDisplayFormat("yyyy-MM-dd");
         intervalStartEdit->setCalendarPopup(true);
-        intervalStartEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // 无限制
+        intervalStartEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // \u65e0\u9650\u5236
         intervalStartEdit->setDate(QDate());
         intervalStartEdit->setMinimumDate(QDate(2000, 1, 1));
         intervalStartEdit->installEventFilter(new CalendarPopupHelper(intervalStartEdit, intervalStartEdit));
+        auto* clearStartBtn = new QPushButton(QStringLiteral("\u6e05\u9664"), intervalWidget); // \u6e05\u9664
+        clearStartBtn->setFixedWidth(36);
+        clearStartBtn->setToolTip(QStringLiteral("\u6e05\u9664\u65e5\u671f\uff0c\u6062\u590d\u4e3a\u65e0\u9650\u5236")); // \u6e05\u9664\u65e5\u671f\uff0c\u6062\u590d\u4e3a\u65e0\u9650\u5236
+        {
+            QColor pc = ThemeManager::currentPrimaryColor();
+            clearStartBtn->setStyleSheet(QString(
+                "QPushButton { padding: 0 2px; background-color: %1; color: #FFFFFF; }"
+                "QPushButton:hover { background-color: %2; }").arg(pc.name(), pc.lighter(115).name()));
+        }
+        QObject::connect(clearStartBtn, &QPushButton::clicked, intervalStartEdit, [this]() {
+            intervalStartEdit->setDate(intervalStartEdit->minimumDate());
+        });
         intervalEndEdit = new QDateEdit(intervalWidget);
         intervalEndEdit->setDisplayFormat("yyyy-MM-dd");
         intervalEndEdit->setCalendarPopup(true);
-        intervalEndEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // 无限制
+        intervalEndEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // \u65e0\u9650\u5236
         intervalEndEdit->setDate(QDate());
         intervalEndEdit->setMinimumDate(QDate(2000, 1, 1));
         intervalEndEdit->installEventFilter(new CalendarPopupHelper(intervalEndEdit, intervalEndEdit));
+        auto* clearEndBtn = new QPushButton(QStringLiteral("\u6e05\u9664"), intervalWidget); // \u6e05\u9664
+        clearEndBtn->setFixedWidth(36);
+        clearEndBtn->setToolTip(QStringLiteral("\u6e05\u9664\u65e5\u671f\uff0c\u6062\u590d\u4e3a\u65e0\u9650\u5236")); // \u6e05\u9664\u65e5\u671f\uff0c\u6062\u590d\u4e3a\u65e0\u9650\u5236
+        {
+            QColor pc = ThemeManager::currentPrimaryColor();
+            clearEndBtn->setStyleSheet(QString(
+                "QPushButton { padding: 0 2px; background-color: %1; color: #FFFFFF; }"
+                "QPushButton:hover { background-color: %2; }").arg(pc.name(), pc.lighter(115).name()));
+        }
+        QObject::connect(clearEndBtn, &QPushButton::clicked, intervalEndEdit, [this]() {
+            intervalEndEdit->setDate(intervalEndEdit->minimumDate());
+        });
         dateRow->addWidget(new QLabel(QStringLiteral("\u65e5\u671f\u8303\u56f4:"), intervalWidget)); // \u65e5\u671f\u8303\u56f4\uff1a
-        dateRow->addWidget(new QLabel(QStringLiteral("\u4ece:"), intervalWidget)); // 从：
+        dateRow->addWidget(new QLabel(QStringLiteral("\u4ece:"), intervalWidget)); // \u4ece\uff1a
         dateRow->addWidget(intervalStartEdit);
-        dateRow->addWidget(new QLabel(QStringLiteral("\u5230:"), intervalWidget)); // 到：
+        dateRow->addWidget(clearStartBtn);
+        dateRow->addWidget(new QLabel(QStringLiteral("\u5230:"), intervalWidget)); // \u5230\uff1a
         dateRow->addWidget(intervalEndEdit);
+        dateRow->addWidget(clearEndBtn);
         dateRow->addStretch();
         intervalLayout->addLayout(dateRow);
 
