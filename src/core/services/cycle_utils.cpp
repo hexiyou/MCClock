@@ -76,21 +76,37 @@ QDateTime CycleUtils::nextOccurrence(const QDateTime& now, int cycleMode,
     QTime t = QTime::fromString(time, "HH:mm");
     if (!t.isValid()) return QDateTime();
 
-    // Interval mode: repeat every N minutes from anchor
+    // Interval mode: repeat every N seconds from anchor
     if (cycleMode == 5) {
-        int intervalMin = cd.value("interval_minutes").toInt();
-        if (intervalMin <= 0) return QDateTime();
+        qint64 intervalSec = intervalSeconds(cycleData);
+        if (intervalSec <= 0) return QDateTime();
+
         QDateTime anchor = QDateTime::fromString(cd.value("anchor").toString(), Qt::ISODateWithMs);
         if (!anchor.isValid()) anchor = QDateTime::fromString(cd.value("anchor").toString(), Qt::ISODate);
         if (!anchor.isValid()) {
             anchor = QDateTime(now.date(), t);
         }
+
         if (anchor > now) {
             return inRange(anchor, rangeStart, rangeEnd) ? anchor : QDateTime();
         }
         qint64 elapsed = anchor.secsTo(now);
-        qint64 periods = elapsed / (qint64(intervalMin) * 60) + 1;
-        QDateTime next = anchor.addSecs(periods * qint64(intervalMin) * 60);
+        qint64 periods = elapsed / intervalSec + 1;
+        QDateTime next = anchor.addSecs(periods * intervalSec);
+
+        // Check interval restrictions (weekdays, date range)
+        if (!intervalDateAllowed(next.date(), cycleData)) {
+            // Skip to next allowed day, preserving the interval-aligned time of day
+            QTime nextTimeOfDay = next.time();
+            for (int offset = 1; offset <= 365; ++offset) {
+                QDate skipDate = next.date().addDays(offset);
+                if (intervalDateAllowed(skipDate, cycleData)) {
+                    next = QDateTime(skipDate, nextTimeOfDay);
+                    break;
+                }
+            }
+        }
+
         if (!inRange(next, rangeStart, rangeEnd)) return QDateTime();
         return next;
     }
@@ -109,6 +125,47 @@ QDateTime CycleUtils::nextOccurrence(const QDateTime& now, int cycleMode,
         return candidate;
     }
     return QDateTime();
+}
+
+qint64 CycleUtils::intervalSeconds(const QString& cycleData) {
+    QJsonObject cd = parseCycleData(cycleData);
+    int h = cd.value("interval_hours").toInt();
+    int m = cd.value("interval_minutes").toInt();
+    int s = cd.value("interval_seconds").toInt();
+    // Fallback to old format
+    if (h == 0 && m == 0 && s == 0) {
+        m = cd.value("interval_minutes").toInt();
+    }
+    return qint64(h) * 3600 + qint64(m) * 60 + qint64(s);
+}
+
+bool CycleUtils::intervalDateAllowed(const QDate& date, const QString& cycleData) {
+    QJsonObject cd = parseCycleData(cycleData);
+
+    // Check weekday restriction
+    QJsonArray restrictWeekdays = cd.value("restrict_weekdays").toArray();
+    if (!restrictWeekdays.isEmpty()) {
+        int dow = date.dayOfWeek(); // 1=Mon..7=Sun
+        bool found = false;
+        for (const auto& v : restrictWeekdays) {
+            if (v.toInt() == dow) { found = true; break; }
+        }
+        if (!found) return false;
+    }
+
+    // Check date range restriction
+    QString restrictStart = cd.value("restrict_start").toString();
+    QString restrictEnd = cd.value("restrict_end").toString();
+    if (!restrictStart.isEmpty()) {
+        QDate start = QDate::fromString(restrictStart, "yyyy-MM-dd");
+        if (start.isValid() && date < start) return false;
+    }
+    if (!restrictEnd.isEmpty()) {
+        QDate end = QDate::fromString(restrictEnd, "yyyy-MM-dd");
+        if (end.isValid() && date > end) return false;
+    }
+
+    return true;
 }
 
 } // namespace mcclock::services

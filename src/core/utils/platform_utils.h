@@ -198,6 +198,50 @@ public:
 #endif
     }
 
+    // Parse command line arguments respecting quoted strings
+    static QStringList parseArguments(const QString& args) {
+        QStringList result;
+        QString current;
+        bool inQuote = false;
+        QChar quoteChar;
+
+        for (int i = 0; i < args.length(); ++i) {
+            QChar c = args[i];
+
+            if (inQuote) {
+                if (c == quoteChar) {
+                    // Check for escaped quote (doubled)
+                    if (i + 1 < args.length() && args[i + 1] == quoteChar) {
+                        current += c;
+                        ++i; // skip the escaped quote
+                    } else {
+                        inQuote = false;
+                    }
+                } else {
+                    current += c;
+                }
+            } else {
+                if (c == '"' || c == '\'') {
+                    inQuote = true;
+                    quoteChar = c;
+                } else if (c == ' ' || c == '\t') {
+                    if (!current.isEmpty()) {
+                        result.append(current);
+                        current.clear();
+                    }
+                } else {
+                    current += c;
+                }
+            }
+        }
+
+        if (!current.isEmpty()) {
+            result.append(current);
+        }
+
+        return result;
+    }
+
     // Run a program or open a URL
     static bool runProgramOrUrl(const QString& path, const QString& args = "") {
         if (path.startsWith("http://") || path.startsWith("https://")) {
@@ -206,7 +250,7 @@ public:
         const QString realPath = expandEnvVars(path.trimmed());
         const QString realArgs = expandEnvVars(args);
         if (!realArgs.isEmpty()) {
-            return QProcess::startDetached(realPath, realArgs.split(' ', Qt::SkipEmptyParts));
+            return QProcess::startDetached(realPath, parseArguments(realArgs));
         }
         return QProcess::startDetached(realPath, {});
     }

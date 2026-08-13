@@ -13,7 +13,11 @@ namespace mcclock::services {
 //   Weekly:   {"weekdays":[1..7]}  (1=Monday .. 7=Sunday)
 //   Monthly:  {"day":N}            (skips months without day N)
 //   Yearly:   {"month":M,"day":D}  (skips invalid dates like Feb 30)
-//   Interval: {"interval_minutes":N,"anchor":"ISO8601"}
+//   Interval: {"interval_hours":H,"interval_minutes":M,"interval_seconds":S,
+//              "anchor":"ISO8601",
+//              "restrict_weekdays":[1..7],           (optional, empty=all days)
+//              "restrict_start":"yyyy-MM-dd",        (optional)
+//              "restrict_end":"yyyy-MM-dd"}          (optional)
 class CycleUtils {
 public:
     // Whether the cycle triggers on the given date
@@ -27,6 +31,12 @@ public:
 
     // Whether a trigger at the given datetime falls within the optional range
     static bool inRange(const QDateTime& dt, const QString& rangeStart, const QString& rangeEnd);
+
+    // Get interval total seconds from cycleData (supports hours, minutes, seconds)
+    static qint64 intervalSeconds(const QString& cycleData);
+
+    // Check if date is within interval restrictions (weekdays, date range)
+    static bool intervalDateAllowed(const QDate& date, const QString& cycleData);
 };
 
 } // namespace mcclock::services

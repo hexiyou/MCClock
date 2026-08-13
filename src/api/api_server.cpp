@@ -273,6 +273,25 @@ public:
             else respondFail(res, "clear-recycle failed");
         });
 
+        // ── Alarm copy ──
+        svr_.Post(R"(/api/v1/alarms/copy/([^/]+))",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            Alarm a = AlarmService().findByUuid(uuid);
+            if (a.uuid.isEmpty()) { respondFail(res, "not found"); return; }
+            // Optional: override label from request body
+            json body;
+            if (parseBody(req, body) && body.is_object() && body.contains("label")) {
+                a.label = QString::fromStdString(body["label"].get<std::string>());
+            }
+            a.uuid.clear();
+            a.createdAt.clear();
+            a.lastModified.clear();
+            auto saved = AlarmService().add(a);
+            onChanged();
+            respondOk(res, qToJson(saved.toJson()));
+        });
+
         // ── Alarm groups CRUD ──
         svr_.Get("/api/v1/alarm-groups",
                  [](const httplib::Request&, httplib::Response& res) {
@@ -312,6 +331,25 @@ public:
             if (t.uuid.isEmpty()) { respondFail(res, "not found"); return; }
             if (RunProgramService().executeNow(t)) { onChanged(); respondOk(res); }
             else respondFail(res, "launch failed");
+        });
+
+        // ── Run program copy ──
+        svr_.Post(R"(/api/v1/run-programs/copy/([^/]+))",
+                  [onChanged](const httplib::Request& req, httplib::Response& res) {
+            QString uuid = QString::fromStdString(req.matches[1].str());
+            RunProgramTask t = RunProgramService().findByUuid(uuid);
+            if (t.uuid.isEmpty()) { respondFail(res, "not found"); return; }
+            // Optional: override label from request body
+            json body;
+            if (parseBody(req, body) && body.is_object() && body.contains("label")) {
+                t.label = QString::fromStdString(body["label"].get<std::string>());
+            }
+            t.uuid.clear();
+            t.createdAt.clear();
+            t.lastModified.clear();
+            auto saved = RunProgramService().add(t);
+            onChanged();
+            respondOk(res, qToJson(saved.toJson()));
         });
         svr_.Post(R"(/api/v1/shutdown-tasks/([^/]+)/run)",
                   [onChanged](const httplib::Request& req, httplib::Response& res) {

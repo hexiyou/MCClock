@@ -212,6 +212,7 @@ MCClock-CLI.exe <module> <action> [options]
 | `clear-recycle` | 清空回收站 | `MCClock-CLI alarm clear-recycle --yes` |
 | `export` | 导出到JSON | `MCClock-CLI alarm export --file alarms.json` |
 | `import` | 从JSON导入 | `MCClock-CLI alarm import --file alarms.json` |
+| `copy` | 复制闹钟 | `MCClock-CLI alarm copy --uuid <uuid> --label "副本"` |
 | `list-groups` | 列出所有分组 | `MCClock-CLI alarm list-groups` |
 | `add-group` | 创建新分组 | `MCClock-CLI alarm add-group --add-group "工作"` |
 | `rename-group` | 重命名分组 | `MCClock-CLI alarm rename-group --uuid <uuid> --rename-group "新名"` |
@@ -267,10 +268,15 @@ MCClock-CLI.exe <module> <action> [options]
 | `edit` | 编辑任务 | `MCClock-CLI run edit --uuid <uuid> --path "D:\new.exe"` |
 | `delete` | 删除任务 | `MCClock-CLI run delete --uuid <uuid>` |
 | `run` | 立即执行 | `MCClock-CLI run run --uuid <uuid>` |
+| `copy` | 复制任务 | `MCClock-CLI run copy --uuid <uuid> --label "副本"` |
 
 **运行选项：**
 - `--path <p>` - 程序路径
 - `--args <a>` - 程序参数
+- `--time <HH:mm>` - 执行时间
+- `--cycle <mode>` - 周期模式：once/daily/weekly/interval
+- `--cycle-data <json>` - 周期参数（JSON格式，间隔模式支持时分秒和限制条件）
+- `--label <text>` - 备注
 
 #### countdown - 倒计时
 
@@ -397,6 +403,30 @@ curl -X POST http://localhost:8080/api/v1/alarms \
 
 **POST /api/v1/alarms/clear-recycle** - 清空回收站
 
+**POST /api/v1/alarms/copy/{uuid}** - 复制闹钟
+
+请求示例：
+```bash
+curl -X POST http://localhost:8080/api/v1/alarms/copy/<uuid> \
+  -H "Content-Type: application/json" \
+  -d '{"label": "副本"}'
+```
+
+响应示例：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "uuid": "new-uuid...",
+    "time": "07:30",
+    "label": "副本",
+    "cycleMode": 1,
+    "enabled": true
+  }
+}
+```
+
 #### 闹钟分组管理
 
 **GET /api/v1/alarm-groups** - 获取所有分组
@@ -508,6 +538,46 @@ curl -X POST http://localhost:8080/api/v1/run-programs \
 **DELETE /api/v1/run-programs/{uuid}** - 删除运行任务
 
 **POST /api/v1/run-programs/{uuid}/run** - 立即执行程序
+
+**POST /api/v1/run-programs/copy/{uuid}** - 复制运行任务
+
+请求示例：
+```bash
+curl -X POST http://localhost:8080/api/v1/run-programs/copy/<uuid> \
+  -H "Content-Type: application/json" \
+  -d '{"label": "副本"}'
+```
+
+响应示例：
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "uuid": "new-uuid...",
+    "time": "09:00",
+    "programPath": "C:\\Windows\\notepad.exe",
+    "label": "副本",
+    "cycleMode": 1,
+    "enabled": true
+  }
+}
+```
+
+间隔模式周期参数示例（cycle_data JSON）：
+```json
+{
+  "interval_hours": 0,
+  "interval_minutes": 5,
+  "interval_seconds": 0,
+  "restrict_weekdays": [1, 3, 5],
+  "restrict_start": "2026-08-01",
+  "restrict_end": "2026-08-31"
+}
+```
+- `interval_hours`/`interval_minutes`/`interval_seconds` - 间隔时长
+- `restrict_weekdays` - 星期限制（1=周一..7=周日，可选，空数组表示无限制）
+- `restrict_start`/`restrict_end` - 日期范围限制（可选，空字符串表示无限制）
 
 #### 倒计时
 

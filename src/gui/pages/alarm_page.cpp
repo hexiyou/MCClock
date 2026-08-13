@@ -39,17 +39,20 @@ void AlarmPage::setupUi() {
 
     // Toolbar
     auto* toolbar = new QHBoxLayout();
-    auto* addBtn = new QPushButton(QStringLiteral("\uff0b \u65b0\u589e\u95f9\u949f"), this); // ＋ 新增闹钟
-    auto* editBtn = new QPushButton(QStringLiteral("\u7f16\u8f91"), this); // 编辑
-    editBtn->setProperty("flatStyle", "secondary");
-    auto* delBtn = new QPushButton(QStringLiteral("\u5220\u9664"), this); // 删除
+    auto* addBtn = new QPushButton(QStringLiteral("\uff0b \u65b0\u589e\u95f9\u949f"), this); // \uff0b \u65b0\u589e\u95f9\u949f
+    editBtn_ = new QPushButton(QStringLiteral("\u7f16\u8f91"), this); // \u7f16\u8f91
+    editBtn_->setProperty("flatStyle", "secondary");
+    auto* delBtn = new QPushButton(QStringLiteral("\u5220\u9664"), this); // \u5220\u9664
     delBtn->setProperty("flatStyle", "danger");
-    recycleBinBtn_ = new QPushButton(QStringLiteral("\u56de\u6536\u7ad9"), this); // 回收站
+    recycleBinBtn_ = new QPushButton(QStringLiteral("\u56de\u6536\u7ad9"), this); // \u56de\u6536\u7ad9
     recycleBinBtn_->setProperty("flatStyle", "secondary");
-
+    
     toolbar->addWidget(addBtn);
-    toolbar->addWidget(editBtn);
+    toolbar->addWidget(editBtn_);
     toolbar->addWidget(delBtn);
+    copyBtn_ = new QPushButton(QStringLiteral("\u590d\u5236"), this); // \u590d\u5236
+    copyBtn_->setProperty("flatStyle", "secondary");
+    toolbar->addWidget(copyBtn_);
     toolbar->addWidget(recycleBinBtn_);
 
     restoreBtn_ = new QPushButton(QStringLiteral("\u8fd8\u539f"), this); // 还原
@@ -76,8 +79,9 @@ void AlarmPage::setupUi() {
     root->addLayout(toolbar);
 
     connect(addBtn, &QPushButton::clicked, this, &AlarmPage::addAlarm);
-    connect(editBtn, &QPushButton::clicked, this, &AlarmPage::editSelected);
+    connect(editBtn_, &QPushButton::clicked, this, &AlarmPage::editSelected);
     connect(delBtn, &QPushButton::clicked, this, &AlarmPage::deleteSelected);
+    connect(copyBtn_, &QPushButton::clicked, this, &AlarmPage::copySelected);
     connect(recycleBinBtn_, &QPushButton::clicked, this, &AlarmPage::toggleRecycleBinView);
     connect(restoreBtn_, &QPushButton::clicked, this, &AlarmPage::restoreSelected);
     connect(clearRecycleBtn_, &QPushButton::clicked, this, &AlarmPage::clearRecycleBin);
@@ -104,7 +108,10 @@ void AlarmPage::setupUi() {
         QStringLiteral("\u5907\u6ce8"),   // 备注
         QStringLiteral("\u6700\u540e\u4fee\u6539") // 最后修改
     });
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    table_->horizontalHeader()->setStretchLastSection(true);
+    table_->horizontalHeader()->setSectionsMovable(true);
+    table_->horizontalHeader()->setMinimumSectionSize(50);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -221,6 +228,50 @@ void AlarmPage::editSelected() {
     }
 }
 
+void AlarmPage::copySelected() {
+    if (recycleBinView_) {
+        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u8bf7\u5148\u6062\u590d\u8be5\u95f9\u949f\u518d\u590d\u5236"));
+        return;
+    }
+    // Check selection: exactly one row required
+    QSet<int> selectedRows;
+    for (auto* item : table_->selectedItems()) {
+        selectedRows.insert(item->row());
+    }
+    if (selectedRows.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u8bf7\u9009\u62e9\u4e00\u6761\u8981\u590d\u5236\u7684\u95f9\u949f"));
+        return;
+    }
+    if (selectedRows.size() > 1) {
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u6bcf\u6b21\u53ea\u80fd\u590d\u5236\u4e00\u6761\u8bb0\u5f55"));
+        return;
+    }
+    int row = *selectedRows.begin();
+    QString uuid = table_->item(row, 1)->data(Qt::UserRole).toString();
+    AlarmService svc;
+    auto alarm = svc.findByUuid(uuid);
+    if (alarm.uuid.isEmpty()) return;
+
+    // Show input dialog for label
+    bool ok = false;
+    QString newLabel = QInputDialog::getText(this, QStringLiteral("\u590d\u5236\u95f9\u949f"),
+        QStringLiteral("\u8bf7\u8f93\u5165\u5907\u6ce8\u4fe1\u606f\uff1a"),
+        QLineEdit::Normal, alarm.label, &ok);
+    if (!ok) return;
+
+    // Create a copy with new UUID and label
+    alarm.uuid.clear();
+    alarm.label = newLabel;
+    alarm.createdAt.clear();
+    alarm.lastModified.clear();
+    svc.add(alarm);
+    refresh();
+    emit dataChanged();
+}
+
 void AlarmPage::deleteSelected() {
     QList<QTableWidgetItem*> selectedItems = table_->selectedItems();
     if (selectedItems.isEmpty()) return;
@@ -268,6 +319,8 @@ void AlarmPage::toggleRecycleBinView() {
     recycleBinBtn_->setText(recycleBinView_
         ? QStringLiteral("\u8fd4\u56de\u5217\u8868")       // 返回列表
         : QStringLiteral("\u56de\u6536\u7ad9"));            // 回收站
+    editBtn_->setVisible(!recycleBinView_);
+    copyBtn_->setVisible(!recycleBinView_);
     restoreBtn_->setVisible(recycleBinView_);
     clearRecycleBtn_->setVisible(recycleBinView_);
     refresh();

@@ -83,7 +83,10 @@ void CountdownPage::setupUi() {
         QStringLiteral("\u5269\u4f59"),       // 剩余
         QStringLiteral("\u72b6\u6001")        // 状态
     });
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    table_->horizontalHeader()->setStretchLastSection(true);
+    table_->horizontalHeader()->setSectionsMovable(true);
+    table_->horizontalHeader()->setMinimumSectionSize(50);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);

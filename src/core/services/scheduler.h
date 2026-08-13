@@ -38,6 +38,7 @@ private slots:
 
 private:
     void evaluateMinuteBoundary(const QDateTime& now);
+    void evaluateIntervalTasks(const QDateTime& now);
     void evaluateShutdownWarnings(const QDateTime& now);
     QDateTime triggerDateTime(const models::ShutdownTask& t, const QDateTime& now) const;
 
@@ -45,6 +46,7 @@ private:
     int lastMinute_ = -1;
     int lastHour_ = -1;
     QSet<QString> firedKeys_;   // dedupe: uuid@yyyyMMddHHmm
+    QMap<QString, QDateTime> intervalNextFire_; // next fire time for interval tasks
 };
 
 // Stopwatch with millisecond precision

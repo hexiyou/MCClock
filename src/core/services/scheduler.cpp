@@ -52,6 +52,7 @@ void Scheduler::onTick() {
     emit tick(now);
 
     evaluateShutdownWarnings(now);
+    evaluateIntervalTasks(now);
 
     int minute = now.time().minute();
     if (minute != lastMinute_) {
@@ -124,10 +125,11 @@ void Scheduler::evaluateMinuteBoundary(const QDateTime& now) {
         emit birthdayTriggered(b);
     }
 
-    // Run program tasks
+    // Run program tasks (skip interval mode — handled by evaluateIntervalTasks)
     const auto progs = dal::RunProgramTaskDao().findAll();
     for (const auto& t : progs) {
         if (!t.enabled) continue;
+        if (t.cycleMode == 5) continue; // interval mode managed separately
         if (t.time != hhmm) continue;
         if (!CycleUtils::occursOnDate(today, t.cycleMode, t.cycleData)) continue;
         QString key = t.uuid + "@" + dedupeSuffix;
@@ -167,6 +169,45 @@ void Scheduler::evaluateShutdownWarnings(const QDateTime& now) {
         qint64 secsLeft = now.secsTo(trigger);
         if (secsLeft < 0 || secsLeft > t.advanceSeconds) continue;
         emit shutdownWarning(t, static_cast<int>(secsLeft));
+    }
+}
+
+void Scheduler::evaluateIntervalTasks(const QDateTime& now) {
+    const auto progs = dal::RunProgramTaskDao().findAll();
+    for (const auto& t : progs) {
+        if (!t.enabled) continue;
+        if (t.cycleMode != 5) continue; // Only interval mode
+
+        // Check if we have a scheduled next fire time
+        QDateTime nextFire = intervalNextFire_.value(t.uuid);
+
+        // Calculate next fire time if not set
+        if (!nextFire.isValid()) {
+            QDateTime next = CycleUtils::nextOccurrence(now, t.cycleMode, t.cycleData,
+                                                        t.time, t.rangeStart, t.rangeEnd);
+            if (!next.isValid()) continue;
+            intervalNextFire_[t.uuid] = next;
+            nextFire = next;
+        }
+
+        // Trigger if current time has reached the scheduled fire time
+        if (now >= nextFire) {
+            // Use second-level dedup to prevent double-firing
+            QString key = t.uuid + "@" + nextFire.toString("yyyyMMddHHmmss");
+            if (!firedKeys_.contains(key)) {
+                firedKeys_.insert(key);
+                emit runProgramTriggered(t);
+            }
+
+            // Calculate the next fire time from the current fire time + 1 second
+            // This ensures consistent interval spacing from the anchor
+            QDateTime subsequent = CycleUtils::nextOccurrence(nextFire.addSecs(1), t.cycleMode,
+                                                              t.cycleData, t.time,
+                                                              t.rangeStart, t.rangeEnd);
+            if (subsequent.isValid()) {
+                intervalNextFire_[t.uuid] = subsequent;
+            }
+        }
     }
 }
 

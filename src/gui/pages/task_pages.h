@@ -46,6 +46,7 @@ private slots:
     void editSelected();
     void deleteSelected();
     void testRunSelected();
+    void copySelected();
 
 private:
     void setupUi();

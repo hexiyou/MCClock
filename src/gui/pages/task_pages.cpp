@@ -19,9 +19,11 @@
 #include <QDialog>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QInputDialog>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QColor>
+#include <QEvent>
 
 namespace mcclock::gui {
 
@@ -31,6 +33,26 @@ using mcclock::services::RunProgramService;
 // ── Shared helper: cycle editor row (simplified: once/daily/weekly) ──
 namespace {
 
+// Event filter: when calendar popup opens on a date edit that still holds
+// the sentinel value (min date = 2000-01-01), reposition to today.
+class CalendarPopupHelper : public QObject {
+public:
+    explicit CalendarPopupHelper(QDateEdit* edit, QObject* parent = nullptr)
+        : QObject(parent), edit_(edit) {}
+
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        if (obj == edit_ && event->type() == QEvent::MouseButtonPress) {
+            if (edit_->date() <= edit_->minimumDate()) {
+                edit_->setDate(QDate::currentDate());
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+
+private:
+    QDateEdit* edit_;
+};
+
 struct CycleEditor {
     QComboBox* combo = nullptr;
     QDateEdit* onceDateEdit = nullptr;   // date for "run once" mode
@@ -38,6 +60,9 @@ struct CycleEditor {
     QSpinBox* intervalHourSpin = nullptr;
     QSpinBox* intervalMinSpin = nullptr;
     QSpinBox* intervalSecSpin = nullptr;
+    QCheckBox* intervalWeekChecks[7] = {nullptr}; // Mon-Sun checkboxes
+    QDateEdit* intervalStartEdit = nullptr;    // restriction start date
+    QDateEdit* intervalEndEdit = nullptr;      // restriction end date
 
     QWidget* create(QWidget* parent) {
         auto* w = new QWidget(parent);
@@ -47,7 +72,7 @@ struct CycleEditor {
         combo->addItem(QStringLiteral("\u53ea\u6267\u884c\u4e00\u6b21"), 0); // 只执行一次
         combo->addItem(QStringLiteral("\u6bcf\u5929"), 1);                   // 每天
         combo->addItem(QStringLiteral("\u6bcf\u5468"), 2);                   // 每周
-        combo->addItem(QStringLiteral("\u6bcf\u9694..."), 3);                // 每隔...
+        combo->addItem(QStringLiteral("\u6bcf\u9694..."), 5);                // 每隔... (mode 5 = interval)
         layout->addWidget(combo);
         onceDateEdit = new QDateEdit(w);
         onceDateEdit->setDisplayFormat("yyyy-MM-dd");
@@ -58,10 +83,14 @@ struct CycleEditor {
         weeklineEdit->setVisible(false);
         layout->addWidget(weeklineEdit, 1);
 
-        // Interval spin boxes
+        // Interval widget
         auto* intervalWidget = new QWidget(w);
-        auto* intervalLayout = new QHBoxLayout(intervalWidget);
+        auto* intervalLayout = new QVBoxLayout(intervalWidget);
         intervalLayout->setContentsMargins(0, 0, 0, 0);
+        intervalLayout->setSpacing(4);
+
+        // Row 1: Time interval spin boxes
+        auto* intervalRow = new QHBoxLayout();
         intervalHourSpin = new QSpinBox(intervalWidget);
         intervalHourSpin->setRange(0, 99);
         intervalHourSpin->setSuffix(QStringLiteral(" \u65f6")); // 时
@@ -71,11 +100,51 @@ struct CycleEditor {
         intervalSecSpin = new QSpinBox(intervalWidget);
         intervalSecSpin->setRange(0, 59);
         intervalSecSpin->setSuffix(QStringLiteral(" \u79d2")); // 秒
-        intervalLayout->addWidget(intervalHourSpin);
-        intervalLayout->addWidget(intervalMinSpin);
-        intervalLayout->addWidget(intervalSecSpin);
+        intervalRow->addWidget(intervalHourSpin);
+        intervalRow->addWidget(intervalMinSpin);
+        intervalRow->addWidget(intervalSecSpin);
+        intervalRow->addStretch();
+        intervalLayout->addLayout(intervalRow);
+
+        // Row 2: Weekday checkboxes
+        auto* weekdayRow = new QHBoxLayout();
+        weekdayRow->setSpacing(4);
+        weekdayRow->addWidget(new QLabel(QStringLiteral("\u661f\u671f:"), intervalWidget)); // 星期：
+        static const char* dayNames[] = {"\u4e00", "\u4e8c", "\u4e09", "\u56db", "\u4e94", "\u516d", "\u65e5"}; // 一二三四五六日
+        for (int i = 0; i < 7; ++i) {
+            intervalWeekChecks[i] = new QCheckBox(QStringLiteral("%1").arg(QString::fromUtf8(dayNames[i])), intervalWidget);
+            weekdayRow->addWidget(intervalWeekChecks[i]);
+        }
+        weekdayRow->addStretch();
+        intervalLayout->addLayout(weekdayRow);
+
+        // Row 3: Date range
+        auto* dateRow = new QHBoxLayout();
+        dateRow->setSpacing(8);
+        intervalStartEdit = new QDateEdit(intervalWidget);
+        intervalStartEdit->setDisplayFormat("yyyy-MM-dd");
+        intervalStartEdit->setCalendarPopup(true);
+        intervalStartEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // 无限制
+        intervalStartEdit->setDate(QDate());
+        intervalStartEdit->setMinimumDate(QDate(2000, 1, 1));
+        intervalStartEdit->installEventFilter(new CalendarPopupHelper(intervalStartEdit, intervalStartEdit));
+        intervalEndEdit = new QDateEdit(intervalWidget);
+        intervalEndEdit->setDisplayFormat("yyyy-MM-dd");
+        intervalEndEdit->setCalendarPopup(true);
+        intervalEndEdit->setSpecialValueText(QStringLiteral("\u65e0\u9650\u5236")); // 无限制
+        intervalEndEdit->setDate(QDate());
+        intervalEndEdit->setMinimumDate(QDate(2000, 1, 1));
+        intervalEndEdit->installEventFilter(new CalendarPopupHelper(intervalEndEdit, intervalEndEdit));
+        dateRow->addWidget(new QLabel(QStringLiteral("\u65e5\u671f\u8303\u56f4:"), intervalWidget)); // \u65e5\u671f\u8303\u56f4\uff1a
+        dateRow->addWidget(new QLabel(QStringLiteral("\u4ece:"), intervalWidget)); // 从：
+        dateRow->addWidget(intervalStartEdit);
+        dateRow->addWidget(new QLabel(QStringLiteral("\u5230:"), intervalWidget)); // 到：
+        dateRow->addWidget(intervalEndEdit);
+        dateRow->addStretch();
+        intervalLayout->addLayout(dateRow);
+
         intervalWidget->setVisible(false);
-        layout->addWidget(intervalWidget);
+        layout->addWidget(intervalWidget, 1);
 
         QObject::connect(combo, &QComboBox::currentIndexChanged, w, [this, intervalWidget](int idx) {
             onceDateEdit->setVisible(idx == 0);
@@ -87,8 +156,8 @@ struct CycleEditor {
 
     void load(int cycleMode, const QString& cycleData) {
         QJsonObject cd = QJsonDocument::fromJson(cycleData.toUtf8()).object();
-        if (cycleMode == 3) {
-            combo->setCurrentIndex(3);
+        if (cycleMode == 5) {
+            combo->setCurrentIndex(3); // "每隔..." is at index 3 but mode 5
             onceDateEdit->setVisible(false);
             weeklineEdit->setVisible(false);
             int hours = cd.value("interval_hours").toInt();
@@ -97,6 +166,30 @@ struct CycleEditor {
             intervalHourSpin->setValue(hours);
             intervalMinSpin->setValue(minutes);
             intervalSecSpin->setValue(seconds);
+
+            // Load weekday checkboxes (1=Mon..7=Sun, array index 0..6)
+            QJsonArray restrictWeekdays = cd.value("restrict_weekdays").toArray();
+            for (int i = 0; i < 7; ++i) {
+                bool checked = false;
+                for (const auto& v : restrictWeekdays) {
+                    if (v.toInt() == i + 1) { checked = true; break; }
+                }
+                intervalWeekChecks[i]->setChecked(checked);
+            }
+
+            QDate startDate = QDate::fromString(cd.value("restrict_start").toString(), "yyyy-MM-dd");
+            if (startDate.isValid()) {
+                intervalStartEdit->setDate(startDate);
+            } else {
+                intervalStartEdit->setDate(QDate());
+            }
+
+            QDate endDate = QDate::fromString(cd.value("restrict_end").toString(), "yyyy-MM-dd");
+            if (endDate.isValid()) {
+                intervalEndEdit->setDate(endDate);
+            } else {
+                intervalEndEdit->setDate(QDate());
+            }
         } else {
             combo->setCurrentIndex(cycleMode >= 0 && cycleMode <= 2 ? cycleMode : 0);
             QDate d = QDate::fromString(cd.value("date").toString(), "yyyy-MM-dd");
@@ -120,10 +213,29 @@ struct CycleEditor {
                 if (ok && d >= 1 && d <= 7) arr.append(d);
             }
             cd["weekdays"] = arr;
-        } else if (mode == 3) {
+        } else if (mode == 5) {
             cd["interval_hours"] = intervalHourSpin->value();
             cd["interval_minutes"] = intervalMinSpin->value();
             cd["interval_seconds"] = intervalSecSpin->value();
+
+            // Save weekday checkboxes (1=Mon..7=Sun)
+            QJsonArray restrictWeekdays;
+            for (int i = 0; i < 7; ++i) {
+                if (intervalWeekChecks[i]->isChecked()) {
+                    restrictWeekdays.append(i + 1);
+                }
+            }
+            if (!restrictWeekdays.isEmpty()) {
+                cd["restrict_weekdays"] = restrictWeekdays;
+            }
+
+            // Only save dates that are NOT the default minimum (2000-01-01 means "no restriction")
+            if (intervalStartEdit->date().isValid() && intervalStartEdit->date() > QDate(2000, 1, 1)) {
+                cd["restrict_start"] = intervalStartEdit->date().toString("yyyy-MM-dd");
+            }
+            if (intervalEndEdit->date().isValid() && intervalEndEdit->date() > QDate(2000, 1, 1)) {
+                cd["restrict_end"] = intervalEndEdit->date().toString("yyyy-MM-dd");
+            }
         }
         return QString::fromUtf8(QJsonDocument(cd).toJson(QJsonDocument::Compact));
     }
@@ -136,7 +248,7 @@ struct CycleEditor {
             for (const auto& v : cd.value("weekdays").toArray()) parts << QString::number(v.toInt());
             return QStringLiteral("\u5468 ") + parts.join(","); // 周 X,X
         }
-        if (mode == 3) {
+        if (mode == 5) {
             QJsonObject cd = QJsonDocument::fromJson(cycleData.toUtf8()).object();
             int h = cd.value("interval_hours").toInt();
             int m = cd.value("interval_minutes").toInt();
@@ -145,7 +257,23 @@ struct CycleEditor {
             if (h > 0) parts << QStringLiteral("%1\u65f6").arg(h);
             if (m > 0) parts << QStringLiteral("%1\u5206").arg(m);
             if (s > 0) parts << QStringLiteral("%1\u79d2").arg(s);
-            return QStringLiteral("\u6bcf\u9694 ") + parts.join(""); // 每隔 X时X分X秒
+            QString desc = QStringLiteral("\u6bcf\u9694 ") + parts.join(""); // 每隔 X时X分X秒
+
+            // Add restriction info
+            QJsonArray weekdays = cd.value("restrict_weekdays").toArray();
+            if (!weekdays.isEmpty()) {
+                QStringList wparts;
+                for (const auto& v : weekdays) wparts << QString::number(v.toInt());
+                desc += QStringLiteral(" (\u5468%1)").arg(wparts.join(","));
+            }
+            QString start = cd.value("restrict_start").toString();
+            QString end = cd.value("restrict_end").toString();
+            if (!start.isEmpty() || !end.isEmpty()) {
+                desc += QStringLiteral(" (%1~%2)").arg(
+                    start.isEmpty() ? "?" : start,
+                    end.isEmpty() ? "?" : end);
+            }
+            return desc;
         }
         return QStringLiteral("\u4e00\u6b21"); // 一次
     }
@@ -190,7 +318,10 @@ void ShutdownPage::setupUi() {
         QStringLiteral("\u63d0\u524d\u8b66\u544a"), // 提前警告
         QStringLiteral("\u5907\u6ce8")        // 备注
     });
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    table_->horizontalHeader()->setStretchLastSection(true);
+    table_->horizontalHeader()->setSectionsMovable(true);
+    table_->horizontalHeader()->setMinimumSectionSize(50);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -405,15 +536,18 @@ void RunProgramPage::setupUi() {
     root->setSpacing(8);
 
     auto* toolbar = new QHBoxLayout();
-    auto* addBtn = new QPushButton(QStringLiteral("\uff0b \u65b0\u589e\u4efb\u52a1"), this); // ＋ 新增任务
-    auto* editBtn = new QPushButton(QStringLiteral("\u7f16\u8f91"), this);     // 编辑
-    auto* delBtn = new QPushButton(QStringLiteral("\u5220\u9664"), this);      // 删除
-    auto* testBtn = new QPushButton(QStringLiteral("\u8bd5\u8fd0\u884c"), this); // 试运行
+    auto* addBtn = new QPushButton(QStringLiteral("\uff0b \u65b0\u589e\u4efb\u52a1"), this); // \uff0b \u65b0\u589e\u4efb\u52a1
+    auto* editBtn = new QPushButton(QStringLiteral("\u7f16\u8f91"), this);     // \u7f16\u8f91
+    auto* delBtn = new QPushButton(QStringLiteral("\u5220\u9664"), this);      // \u5220\u9664
+    auto* copyBtn = new QPushButton(QStringLiteral("\u590d\u5236"), this);     // \u590d\u5236
+    auto* testBtn = new QPushButton(QStringLiteral("\u8bd5\u8fd0\u884c"), this); // \u8bd5\u8fd0\u884c
     editBtn->setProperty("flatStyle", "secondary");
+    copyBtn->setProperty("flatStyle", "secondary");
     testBtn->setProperty("flatStyle", "secondary");
     toolbar->addWidget(addBtn);
     toolbar->addWidget(editBtn);
     toolbar->addWidget(delBtn);
+    toolbar->addWidget(copyBtn);
     toolbar->addWidget(testBtn);
     toolbar->addStretch();
     root->addLayout(toolbar);
@@ -427,7 +561,10 @@ void RunProgramPage::setupUi() {
         QStringLiteral("\u72b6\u6001"),       // 状态
         QStringLiteral("\u5907\u6ce8")        // 备注
     });
-    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    table_->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
+    table_->horizontalHeader()->setStretchLastSection(true);
+    table_->horizontalHeader()->setSectionsMovable(true);
+    table_->horizontalHeader()->setMinimumSectionSize(50);
     table_->setSelectionBehavior(QAbstractItemView::SelectRows);
     table_->setSelectionMode(QAbstractItemView::ExtendedSelection);  // Allow Ctrl+Click multi-select
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -438,6 +575,7 @@ void RunProgramPage::setupUi() {
     connect(addBtn, &QPushButton::clicked, this, &RunProgramPage::addTask);
     connect(editBtn, &QPushButton::clicked, this, &RunProgramPage::editSelected);
     connect(delBtn, &QPushButton::clicked, this, &RunProgramPage::deleteSelected);
+    connect(copyBtn, &QPushButton::clicked, this, &RunProgramPage::copySelected);
     connect(testBtn, &QPushButton::clicked, this, &RunProgramPage::testRunSelected);
     connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int, int) { editSelected(); });
 }
@@ -604,8 +742,47 @@ void RunProgramPage::testRunSelected() {
     if (t.uuid.isEmpty()) return;
     if (!svc.executeNow(t)) {
         QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"),
-            QStringLiteral("\u542f\u52a8\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8def\u5f84")); // 启动失败，请检查路径
+            QStringLiteral("\u542f\u52a8\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8def\u5f84")); // \u542f\u52a8\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8def\u5f84
     }
+}
+
+void RunProgramPage::copySelected() {
+    // Check selection: exactly one row required
+    QSet<int> selectedRows;
+    for (auto* item : table_->selectedItems()) {
+        selectedRows.insert(item->row());
+    }
+    if (selectedRows.isEmpty()) {
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u8bf7\u9009\u62e9\u4e00\u6761\u8981\u590d\u5236\u7684\u4efb\u52a1"));
+        return;
+    }
+    if (selectedRows.size() > 1) {
+        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u6bcf\u6b21\u53ea\u80fd\u590d\u5236\u4e00\u6761\u8bb0\u5f55"));
+        return;
+    }
+    int row = *selectedRows.begin();
+    QString uuid = table_->item(row, 0)->data(Qt::UserRole).toString();
+    RunProgramService svc;
+    auto t = svc.findByUuid(uuid);
+    if (t.uuid.isEmpty()) return;
+
+    // Show input dialog for label
+    bool ok = false;
+    QString newLabel = QInputDialog::getText(this, QStringLiteral("\u590d\u5236\u4efb\u52a1"),
+        QStringLiteral("\u8bf7\u8f93\u5165\u5907\u6ce8\u4fe1\u606f\uff1a"),
+        QLineEdit::Normal, t.label, &ok);
+    if (!ok) return;
+
+    // Create a copy with new UUID and label
+    t.uuid.clear();
+    t.label = newLabel;
+    t.createdAt.clear();
+    t.lastModified.clear();
+    svc.add(t);
+    refresh();
+    emit dataChanged();
 }
 
 } // namespace mcclock::gui

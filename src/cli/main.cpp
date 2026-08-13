@@ -334,6 +334,18 @@ int handleAlarm(const QString& action, QCommandLineParser& p,
         out << "Imported " << count << " alarm(s)\n";
         return 0;
     }
+    if (action == "copy") {
+        if (!p.isSet(uuidOpt)) { errStream << "Error: --uuid is required\n"; return 1; }
+        Alarm a = svc.findByUuid(p.value(uuidOpt));
+        if (a.uuid.isEmpty()) { errStream << "Error: alarm not found\n"; return 1; }
+        a.uuid.clear();
+        a.createdAt.clear();
+        a.lastModified.clear();
+        if (p.isSet(labelOpt)) a.label = p.value(labelOpt);
+        auto saved = svc.add(a);
+        out << "Copied alarm " << saved.uuid << "\n";
+        return 0;
+    }
     errStream << "Error: unknown alarm action: " << action << "\n";
     return 1;
 }
@@ -691,6 +703,18 @@ int handleRun(const QString& action, QCommandLineParser& p,
             ++count;
         }
         out << "Imported " << count << " task(s)\n";
+        return 0;
+    }
+    if (action == "copy") {
+        if (!p.isSet(uuidOpt)) { errStream << "Error: --uuid is required\n"; return 1; }
+        RunProgramTask t = svc.findByUuid(p.value(uuidOpt));
+        if (t.uuid.isEmpty()) { errStream << "Error: task not found\n"; return 1; }
+        t.uuid.clear();
+        t.createdAt.clear();
+        t.lastModified.clear();
+        if (p.isSet(labelOpt)) t.label = p.value(labelOpt);
+        auto saved = svc.add(t);
+        out << "Copied run-program task " << saved.uuid << "\n";
         return 0;
     }
     errStream << "Error: unknown run action: " << action << "\n";

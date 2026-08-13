@@ -26,6 +26,7 @@ private slots:
     void editSelected();
     void deleteSelected();
     void restoreSelected();
+    void copySelected();
     void toggleRecycleBinView();
     void clearRecycleBin();
     void onCellDoubleClicked(int row, int column);
@@ -41,6 +42,8 @@ private:
     QTableWidget* table_ = nullptr;
     QComboBox* groupCombo_ = nullptr;
     QComboBox* sortCombo_ = nullptr;
+    QPushButton* editBtn_ = nullptr;
+    QPushButton* copyBtn_ = nullptr;
     QPushButton* recycleBinBtn_ = nullptr;
     QPushButton* restoreBtn_ = nullptr;
     QPushButton* clearRecycleBtn_ = nullptr;
