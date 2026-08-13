@@ -31,6 +31,7 @@ protected:
 private:
     void load();
     void save();
+    void showEditorContextMenu(const QPoint& pos);
 
     QTextEdit* editor_ = nullptr;
     QLabel* closeBtn_ = nullptr;

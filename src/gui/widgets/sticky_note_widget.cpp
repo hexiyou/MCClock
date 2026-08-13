@@ -7,6 +7,8 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QCloseEvent>
+#include <QMenu>
+#include <QAction>
 #include <QPainter>
 #include <QFile>
 #include <QJsonDocument>
@@ -53,10 +55,13 @@ StickyNoteWidget::StickyNoteWidget(QWidget* parent)
     layout->addLayout(header);
 
     editor_ = new QTextEdit(this);
-    editor_->setPlaceholderText(QStringLiteral("\u5728\u8fd9\u91cc\u8bb0\u5f55\u4fbf\u7b7e...")); // 在这里记录便签...
+    editor_->setPlaceholderText(QStringLiteral("\u5728\u8fd9\u91cc\u8bb0\u5f55\u4fbf\u7b7e...")); // \u5728\u8fd9\u91cc\u8bb0\u5f55\u4fbf\u7b7e...
     editor_->setStyleSheet(
         "QTextEdit { background: transparent; color: #5D4037;"
         " border: none; font-size: 14px; }");
+    editor_->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(editor_, &QWidget::customContextMenuRequested,
+            this, &StickyNoteWidget::showEditorContextMenu);
     layout->addWidget(editor_);
 
     load();
@@ -120,6 +125,32 @@ bool StickyNoteWidget::eventFilter(QObject* obj, QEvent* e) {
         }
     }
     return QWidget::eventFilter(obj, e);
+}
+
+void StickyNoteWidget::showEditorContextMenu(const QPoint& pos) {
+    QMenu menu(this);
+    bool hasSelection = editor_->textCursor().hasSelection();
+    auto* undoAction = menu.addAction(QStringLiteral("\u64a4\u9500 (Ctrl+Z)"));
+    auto* redoAction = menu.addAction(QStringLiteral("\u91cd\u505a (Ctrl+Y)"));
+    menu.addSeparator();
+    auto* cutAction = menu.addAction(QStringLiteral("\u526a\u5207 (Ctrl+X)"));
+    cutAction->setEnabled(hasSelection);
+    auto* copyAction = menu.addAction(QStringLiteral("\u590d\u5236 (Ctrl+C)"));
+    copyAction->setEnabled(hasSelection);
+    auto* pasteAction = menu.addAction(QStringLiteral("\u7c98\u8d34 (Ctrl+V)"));
+    auto* deleteAction = menu.addAction(QStringLiteral("\u5220\u9664 (Del)"));
+    deleteAction->setEnabled(hasSelection);
+    menu.addSeparator();
+    auto* selectAllAction = menu.addAction(QStringLiteral("\u5168\u9009 (Ctrl+A)"));
+    QAction* triggered = menu.exec(editor_->mapToGlobal(pos));
+    if (!triggered) return;
+    if (triggered == undoAction) editor_->undo();
+    else if (triggered == redoAction) editor_->redo();
+    else if (triggered == cutAction) editor_->cut();
+    else if (triggered == copyAction) editor_->copy();
+    else if (triggered == pasteAction) editor_->paste();
+    else if (triggered == deleteAction) editor_->textCursor().removeSelectedText();
+    else if (triggered == selectAllAction) editor_->selectAll();
 }
 
 void StickyNoteWidget::mousePressEvent(QMouseEvent* e) {
