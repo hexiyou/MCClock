@@ -56,9 +56,17 @@ Copy-Item $guiExe (Join-Path $deployDir "MCClock.exe") -Force
 if (Test-Path $cliExe) {
     Copy-Item $cliExe (Join-Path $deployDir "MCClock-CLI.exe") -Force
 }
-& $windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw `
+& $windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw --no-ffmpeg --exclude-plugins ffmpegmediaplugin `
     --dir $deployDir (Join-Path $deployDir "MCClock.exe")
 if ($LASTEXITCODE -ne 0) { throw "windeployqt failed" }
+
+# Remove FFmpeg libraries and plugin (no longer needed with --no-ffmpeg)
+$ffmpegFiles = @("avcodec-*.dll", "avformat-*.dll", "avutil-*.dll", "swresample-*.dll", "swscale-*.dll")
+foreach ($pattern in $ffmpegFiles) {
+    Get-ChildItem -Path $deployDir -Filter $pattern -ErrorAction SilentlyContinue | Remove-Item -Force
+}
+$ffPlugin = Join-Path $deployDir "multimedia\ffmpegmediaplugin.dll"
+if (Test-Path $ffPlugin) { Remove-Item $ffPlugin -Force }
 
 # ── 3. Sound resources (alarm ringtones + hourly chime voice files) ──
 Write-Host "[3/5] Copying sound resources ..."
