@@ -80,22 +80,17 @@ void Scheduler::evaluateMinuteBoundary(const QDateTime& now) {
                 shouldChime = true;
             } else if (cycle == "half_hour" && (minute == 0 || minute == 30)) {
                 shouldChime = true;
-            } else if (cycle == "custom") {
+            } else if (cycle == "custom" && minute == 0) {
                 const QJsonArray hours = settings.chimeHours();
-                int customMinute = settings.chimeMinute();
-                bool hourMatch = false;
                 for (const auto& h : hours) {
-                    if (h.toInt() == hour) { hourMatch = true; break; }
-                }
-                if (hourMatch && minute == customMinute) {
-                    shouldChime = true;
+                    if (h.toInt() == hour) { shouldChime = true; break; }
                 }
             }
             if (shouldChime) {
                 QString key = QString("chime@%1").arg(dedupeSuffix);
                 if (!firedKeys_.contains(key)) {
                     firedKeys_.insert(key);
-                    emit hourlyChime(hour, minute);
+                    emit hourlyChime(hour);
                 }
             }
         }

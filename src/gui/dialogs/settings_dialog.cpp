@@ -175,24 +175,12 @@ QWidget* SettingsDialog::createChimeTab() {
     auto* cycleRow = new QHBoxLayout();
     cycleRow->addWidget(new QLabel(QStringLiteral("\u62a5\u65f6\u5468\u671f\uff1a"), page)); // 报时周期：
     chimeCycleCombo_ = new QComboBox(page);
-    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u5c0f\u65f6"), "hourly");       // \u6bcf\u5c0f\u65f6
-    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u534a\u5c0f\u65f6"), "half_hour"); // \u6bcf\u534a\u5c0f\u65f6
-    chimeCycleCombo_->addItem(QStringLiteral("\u81ea\u5b9a\u4e49\u5206\u949f"), "custom"); // \u81ea\u5b9a\u4e49\u5206\u949f
+    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u5c0f\u65f6"), "hourly");       // 每小时
+    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u534a\u5c0f\u65f6"), "half_hour"); // 每半小时
+    chimeCycleCombo_->addItem(QStringLiteral("\u81ea\u5b9a\u4e49\u5c0f\u65f6"), "custom"); // 自定义小时
     cycleRow->addWidget(chimeCycleCombo_);
-    
-    chimeMinuteCombo_ = new QComboBox(page);
-    for (int m : {0, 1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 25, 30, 40, 50, 55}) {
-        chimeMinuteCombo_->addItem(QStringLiteral("%1 \u5206").arg(m), m); // X \u5206
-    }
-    cycleRow->addWidget(chimeMinuteCombo_);
     cycleRow->addStretch();
     layout->addLayout(cycleRow);
-    
-    connect(chimeCycleCombo_, &QComboBox::currentIndexChanged, this, [this](int index) {
-        bool isCustom = (chimeCycleCombo_->itemData(index).toString() == "custom");
-        chimeMinuteCombo_->setVisible(isCustom);
-    });
-    chimeMinuteCombo_->setVisible(false);
 
     // Custom hours grid (0-23)
     auto* hoursGroup = new QGroupBox(QStringLiteral("\u81ea\u5b9a\u4e49\u62a5\u65f6\u5c0f\u65f6"), page); // 自定义报时小时
@@ -281,8 +269,6 @@ void SettingsDialog::loadSettings() {
 
     chimeModeCombo_->setCurrentIndex(chimeModeCombo_->findData(s.chimeMode()));
     chimeCycleCombo_->setCurrentIndex(chimeCycleCombo_->findData(s.chimeCycle()));
-    chimeMinuteCombo_->setCurrentIndex(chimeMinuteCombo_->findData(s.chimeMinute()));
-    chimeMinuteCombo_->setVisible(s.chimeCycle() == "custom");
     const QJsonArray hours = s.chimeHours();
     for (int h = 0; h < chimeHourChecks_.size() && h < 24; ++h) {
         chimeHourChecks_[h]->setChecked(hours.contains(QJsonValue(h)));
@@ -313,7 +299,6 @@ void SettingsDialog::saveSettings() {
 
     s.setChimeMode(chimeModeCombo_->currentData().toString());
     s.setChimeCycle(chimeCycleCombo_->currentData().toString());
-    s.setChimeMinute(chimeMinuteCombo_->currentData().toInt());
     QJsonArray hours;
     for (int h = 0; h < chimeHourChecks_.size() && h < 24; ++h) {
         if (chimeHourChecks_[h]->isChecked()) hours.append(h);
