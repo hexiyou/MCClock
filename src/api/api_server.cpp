@@ -432,14 +432,7 @@ public slots:
 
     void stopServer() {
         stopped_ = true;
-        // Use a separate thread to call stop() to avoid blocking
-        std::thread stopThread([this]() {
-            svr_.stop();
-        });
-        // Wait briefly for stop to complete, but don't block forever
-        if (stopThread.joinable()) {
-            stopThread.detach();
-        }
+        svr_.stop();   // 同步、线程安全，不需要额外开线程
     }
 
 signals:
@@ -495,26 +488,20 @@ void ApiServer::start(const QString& bindIp, int port) {
 void ApiServer::stop() {
     if (!thread_) return;
 
-    // Mark worker as stopping and invoke stopServer
     if (worker_) {
         worker_->stopped_ = true;
-        QMetaObject::invokeMethod(worker_, "stopServer", Qt::QueuedConnection);
+        worker_->svr_.stop();   // 直接同步调用，httplib 保证线程安全，会立刻解除 listen_after_bind() 的阻塞
     }
 
-    // Wait for thread to finish with timeout
     if (thread_->isRunning()) {
-        // Try to quit the event loop first
-        thread_->quit();
-
+        thread_->quit();        // 现在事件循环能正常跑起来了，quit 事件能被处理
         if (!thread_->wait(3000)) {
-            // Force terminate if thread doesn't stop
-            qWarning() << "API server thread did not stop gracefully, terminating...";
-            thread_->terminate();
-            thread_->wait(1000);
+            qWarning() << "API server thread did not stop gracefully";
+            // 走到这里说明还有别的地方卡住了，不建议 terminate()，
+            // 可以先加日志排查，而不是继续强杀
         }
     }
 
-    // Cleanup - disconnect signals first to avoid dangling connections
     if (worker_) {
         disconnect(worker_, nullptr, this, nullptr);
     }
