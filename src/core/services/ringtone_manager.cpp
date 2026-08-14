@@ -166,11 +166,14 @@ void RingtoneManager::speakTime(int hour, int minute, int volumePercent) {
 
     int h12 = hour % 12;
     if (h12 == 0) h12 = 12;
-    enqueue(QString("%1.wav").arg(h12));
+    // Use T2.wav for "两" when hour is 2
+    enqueue(h12 == 2 ? QStringLiteral("T2.wav") : QString("%1.wav").arg(h12));
     enqueue("point.wav"); // 点
 
     if (minute > 0) {
         if (minute < 10) {
+            // Add "零" prefix for single-digit minutes
+            enqueue("0.wav");
             enqueue(QString("%1.wav").arg(minute));
         } else if (minute < 20) {
             enqueue("10.wav");
