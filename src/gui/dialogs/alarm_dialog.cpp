@@ -1,4 +1,6 @@
 #include "alarm_dialog.h"
+#include "../widgets/frameless_helper.h"
+#include "../widgets/frameless_messagebox.h"
 #include "core/services/ringtone_manager.h"
 #include "core/services/business_services.h"
 #include "core/utils/time_utils.h"
@@ -20,6 +22,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -29,11 +32,36 @@ AlarmDialog::AlarmDialog(const mcclock::models::Alarm& existing, QWidget* parent
     : QDialog(parent), alarm_(existing)
 {
     editing_ = !alarm_.uuid.isEmpty();
-    setWindowTitle(editing_ ? QStringLiteral("\u7f16\u8f91\u95f9\u949f")     // 编辑闹钟
-                            : QStringLiteral("\u65b0\u589e\u95f9\u949f"));   // 新增闹钟
-    resize(460, 480);
+    setWindowTitle(editing_ ? QStringLiteral("编辑闹钟")     // 编辑闹钟
+                            : QStringLiteral("新增闹钟"));   // 新增闹钟
+    resize(460, 520);
+    
+    // Build UI first, THEN apply frameless style
     setupUi();
     loadFromModel();
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(this, editing_ ? QStringLiteral("\u7f16\u8f91\u95f9\u949f") : QStringLiteral("\u65b0\u589e\u95f9\u949f"));
+}
+
+void AlarmDialog::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    FramelessHelper::showOverlay(parentWidget());
+}
+
+void AlarmDialog::closeEvent(QCloseEvent* event) {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::closeEvent(event);
+}
+
+void AlarmDialog::reject() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::reject();
+}
+
+void AlarmDialog::accept() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::accept();
 }
 
 void AlarmDialog::setupUi() {
@@ -371,13 +399,13 @@ void AlarmDialog::save() {
         bool any = false;
         for (auto* c : weekdayChecks_) if (c->isChecked()) { any = true; break; }
         if (!any) {
-            QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+            FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
                 QStringLiteral("\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u661f\u671f")); // 请至少选择一个星期
             return;
         }
     }
     if (ringtoneCombo_->currentData().toInt() == 8 && customPathEdit_->text().isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u9009\u62e9\u81ea\u5b9a\u4e49\u94c3\u58f0\u6587\u4ef6")); // 请选择自定义铃声文件
         return;
     }
@@ -402,6 +430,21 @@ void AlarmDialog::save() {
     if (alarm_.groupId.isEmpty()) alarm_.groupId = "default";
 
     accept();
+}
+
+void AlarmDialog::mousePressEvent(QMouseEvent* event) {
+    if (!framelessMousePress(this, event))
+        QDialog::mousePressEvent(event);
+}
+
+void AlarmDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (!framelessMouseMove(this, event))
+        QDialog::mouseMoveEvent(event);
+}
+
+void AlarmDialog::mouseReleaseEvent(QMouseEvent* event) {
+    if (!framelessMouseRelease(this, event))
+        QDialog::mouseReleaseEvent(event);
 }
 
 } // namespace mcclock::gui

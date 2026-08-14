@@ -1,4 +1,5 @@
 #include "time_calculator_dialog.h"
+#include "../widgets/frameless_helper.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -10,6 +11,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QDateTime>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -17,13 +19,37 @@ TimeCalculatorDialog::TimeCalculatorDialog(QWidget* parent)
     : QDialog(parent)
 {
     setWindowTitle(QStringLiteral("\u65f6\u95f4\u8ba1\u7b97\u5668")); // 时间计算器
-    resize(420, 260);
+    resize(420, 300);
 
+    // Build UI first, THEN apply frameless style
     auto* layout = new QVBoxLayout(this);
     auto* tabs = new QTabWidget(this);
-    tabs->addTab(createDiffTab(), QStringLiteral("\u65f6\u95f4\u5dee"));     // 时间差
-    tabs->addTab(createArithmeticTab(), QStringLiteral("\u65f6\u95f4\u52a0\u51cf")); // 时间加减
+    tabs->addTab(createDiffTab(), QStringLiteral("\u65f6\u95f4\u5dee"));     // \u65f6\u95f4\u5dee
+    tabs->addTab(createArithmeticTab(), QStringLiteral("\u65f6\u95f4\u52a0\u51cf")); // \u65f6\u95f4\u52a0\u51cf
     layout->addWidget(tabs);
+
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(this, QStringLiteral("\u65f6\u95f4\u8ba1\u7b97\u5668"));
+}
+
+void TimeCalculatorDialog::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    FramelessHelper::showOverlay(parentWidget());
+}
+
+void TimeCalculatorDialog::closeEvent(QCloseEvent* event) {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::closeEvent(event);
+}
+
+void TimeCalculatorDialog::reject() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::reject();
+}
+
+void TimeCalculatorDialog::accept() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::accept();
 }
 
 QWidget* TimeCalculatorDialog::createDiffTab() {
@@ -113,6 +139,21 @@ QWidget* TimeCalculatorDialog::createArithmeticTab() {
         arithResult_->setText(QStringLiteral("\u7ed3\u679c\uff1a%1").arg(result.toString("yyyy-MM-dd HH:mm"))); // 结果：
     });
     return page;
+}
+
+void TimeCalculatorDialog::mousePressEvent(QMouseEvent* event) {
+    if (!framelessMousePress(this, event))
+        QDialog::mousePressEvent(event);
+}
+
+void TimeCalculatorDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (!framelessMouseMove(this, event))
+        QDialog::mouseMoveEvent(event);
+}
+
+void TimeCalculatorDialog::mouseReleaseEvent(QMouseEvent* event) {
+    if (!framelessMouseRelease(this, event))
+        QDialog::mouseReleaseEvent(event);
 }
 
 } // namespace mcclock::gui

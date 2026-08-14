@@ -2,6 +2,7 @@
 #include "dialogs/alarm_dialog.h"
 #include "core/services/business_services.h"
 #include "core/services/ringtone_manager.h"
+#include "widgets/frameless_messagebox.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -211,7 +212,7 @@ void AlarmPage::addAlarm() {
 
 void AlarmPage::editSelected() {
     if (recycleBinView_) {
-        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u5148\u6062\u590d\u8be5\u95f9\u949f\u518d\u7f16\u8f91")); // 请先恢复该闹钟再编辑
         return;
     }
@@ -232,7 +233,7 @@ void AlarmPage::editSelected() {
 
 void AlarmPage::copySelected() {
     if (recycleBinView_) {
-        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u5148\u6062\u590d\u8be5\u95f9\u949f\u518d\u590d\u5236"));
         return;
     }
@@ -242,12 +243,12 @@ void AlarmPage::copySelected() {
         selectedRows.insert(item->row());
     }
     if (selectedRows.isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u9009\u62e9\u4e00\u6761\u8981\u590d\u5236\u7684\u95f9\u949f"));
         return;
     }
     if (selectedRows.size() > 1) {
-        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u6bcf\u6b21\u53ea\u80fd\u590d\u5236\u4e00\u6761\u8bb0\u5f55"));
         return;
     }
@@ -259,7 +260,7 @@ void AlarmPage::copySelected() {
 
     // Show input dialog for label
     bool ok = false;
-    QString newLabel = QInputDialog::getText(this, QStringLiteral("\u590d\u5236\u95f9\u949f"),
+    QString newLabel = FramelessInputDialog::getText(this, QStringLiteral("\u590d\u5236\u95f9\u949f"),
         QStringLiteral("\u8bf7\u8f93\u5165\u5907\u6ce8\u4fe1\u606f\uff1a"),
         QLineEdit::Normal, alarm.label, &ok);
     if (!ok) return;
@@ -291,7 +292,7 @@ void AlarmPage::deleteSelected() {
     AlarmService svc;
 
     if (recycleBinView_) {
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u6c38\u4e45\u5220\u9664 %1 \u4e2a\u95f9\u949f\uff1f").arg(count)) // 确定永久删除 X 个闹钟？
             == QMessageBox::Yes) {
             for (int row : rows) {
@@ -303,7 +304,7 @@ void AlarmPage::deleteSelected() {
         if (count == 1) {
             svc.moveToRecycleBin(table_->item(rows.first(), 1)->data(Qt::UserRole).toString());
         } else {
-            if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+            if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                     QStringLiteral("\u786e\u5b9a\u5c06 %1 \u4e2a\u95f9\u949f\u79fb\u5230\u56de\u6536\u7ad9\uff1f").arg(count)) // 确定将 X 个闹钟移到回收站？
                 == QMessageBox::Yes) {
                 for (int row : rows) {
@@ -345,7 +346,7 @@ void AlarmPage::restoreSelected() {
     if (count == 1) {
         svc.restore(table_->item(rows.first(), 1)->data(Qt::UserRole).toString());
     } else {
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u8fd8\u539f %1 \u4e2a\u95f9\u949f\uff1f").arg(count))
             == QMessageBox::Yes) {
             for (int row : rows) {
@@ -358,7 +359,7 @@ void AlarmPage::restoreSelected() {
 }
 
 void AlarmPage::clearRecycleBin() {
-    if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+    if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
             QStringLiteral("\u786e\u5b9a\u6e05\u7a7a\u56de\u6536\u7ad9\uff1f")) == QMessageBox::Yes) { // 确定清空回收站？
         AlarmService().clearRecycleBin();
         refresh();
@@ -404,7 +405,7 @@ void AlarmPage::refreshGroupCombo() {
 
 void AlarmPage::createGroup() {
     bool ok;
-    QString name = QInputDialog::getText(this, QStringLiteral("\u521b\u5efa\u5206\u7ec4"), // 创建分组
+    QString name = FramelessInputDialog::getText(this, QStringLiteral("\u521b\u5efa\u5206\u7ec4"), // 创建分组
         QStringLiteral("\u8bf7\u8f93\u5165\u5206\u7ec4\u540d\u79f0\uff1a"), // 请输入分组名称：
         QLineEdit::Normal, QString(), &ok);
 
@@ -430,7 +431,7 @@ void AlarmPage::createGroup() {
 void AlarmPage::manageGroups() {
     auto groups = AlarmGroupService().findAll();
     if (groups.isEmpty()) {
-        QMessageBox::information(this, QStringLiteral("\u7ba1\u7406\u5206\u7ec4"), // 管理分组
+        FramelessMessageBox::information(this, QStringLiteral("\u7ba1\u7406\u5206\u7ec4"), // 管理分组
             QStringLiteral("\u6ca1\u6709\u53ef\u7ba1\u7406\u7684\u5206\u7ec4")); // 没有可管理的分组
         groupCombo_->setCurrentIndex(0);
         return;
@@ -464,7 +465,7 @@ void AlarmPage::manageGroups() {
         if (!item) return;
         QString uuid = item->data(Qt::UserRole).toString();
         bool ok;
-        QString newName = QInputDialog::getText(&dialog, QStringLiteral("\u91cd\u547d\u540d\u5206\u7ec4"), // 重命名分组
+        QString newName = FramelessInputDialog::getText(&dialog, QStringLiteral("\u91cd\u547d\u540d\u5206\u7ec4"), // 重命名分组
             QStringLiteral("\u65b0\u540d\u79f0\uff1a"), // 新名称：
             QLineEdit::Normal, item->text(), &ok);
         if (ok && !newName.trimmed().isEmpty()) {
@@ -477,7 +478,7 @@ void AlarmPage::manageGroups() {
         auto* item = listWidget->currentItem();
         if (!item) return;
         QString uuid = item->data(Qt::UserRole).toString();
-        if (QMessageBox::question(&dialog, QStringLiteral("\u786e\u8ba4\u5220\u9664"), // 确认删除
+        if (FramelessMessageBox::question(&dialog, QStringLiteral("\u786e\u8ba4\u5220\u9664"), // 确认删除
                 QStringLiteral("\u5220\u9664\u5206\u7ec4\u540e\uff0c\u8be5\u5206\u7ec4\u4e0b\u7684\u95f9\u949f\u5c06\u79fb\u5230\u9ed8\u8ba4\u5206\u7ec4\uff0c\u662f\u5426\u7ee7\u7eed\uff1f")) // 删除分组后，该分组下的闹钟将移到默认分组，是否继续？
             == QMessageBox::Yes) {
             AlarmGroupService().remove(uuid);

@@ -8,6 +8,9 @@ class QSpinBox;
 class QTimeEdit;
 class QSlider;
 class QLineEdit;
+class QMouseEvent;
+class QShowEvent;
+class QCloseEvent;
 
 namespace mcclock::gui {
 
@@ -25,6 +28,17 @@ signals:
     // Emitted after save so MainWindow can restart API server etc.
     void settingsSaved();
     void resetStickyNoteRequested();
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
+
+public slots:
+    void reject() override;
+    void accept() override;
 
 private:
     QWidget* createGeneralTab();

@@ -1,11 +1,13 @@
 #include "theme_dialog.h"
 #include "../theme_manager.h"
+#include "../widgets/frameless_helper.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
 #include <QGridLayout>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -14,8 +16,9 @@ ThemeDialog::ThemeDialog(QWidget* parent)
     , selectedColor_(ThemeManager::currentPrimaryColor())
 {
     setWindowTitle(QStringLiteral("换肤"));
-    setFixedSize(360, 180);
+    setFixedSize(360, 220);
 
+    // Build UI first, THEN apply frameless style
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(20, 20, 20, 20);
 
@@ -59,6 +62,29 @@ ThemeDialog::ThemeDialog(QWidget* parent)
     }
 
     layout->addLayout(grid);
+
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(this, QStringLiteral("\u6362\u80a4"));
+}
+
+void ThemeDialog::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    FramelessHelper::showOverlay(parentWidget());
+}
+
+void ThemeDialog::closeEvent(QCloseEvent* event) {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::closeEvent(event);
+}
+
+void ThemeDialog::reject() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::reject();
+}
+
+void ThemeDialog::accept() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::accept();
 }
 
 QVector<QColor> ThemeDialog::availableColors() {
@@ -70,6 +96,21 @@ QVector<QColor> ThemeDialog::availableColors() {
         QColor(137, 87, 161),    // 紫色
         QColor(238, 148, 7)      // 橙色
     };
+}
+
+void ThemeDialog::mousePressEvent(QMouseEvent* event) {
+    if (!framelessMousePress(this, event))
+        QDialog::mousePressEvent(event);
+}
+
+void ThemeDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (!framelessMouseMove(this, event))
+        QDialog::mouseMoveEvent(event);
+}
+
+void ThemeDialog::mouseReleaseEvent(QMouseEvent* event) {
+    if (!framelessMouseRelease(this, event))
+        QDialog::mouseReleaseEvent(event);
 }
 
 } // namespace mcclock::gui

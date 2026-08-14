@@ -1,4 +1,5 @@
 #include "birthday_page.h"
+#include "widgets/frameless_helper.h"
 #include "core/services/business_services.h"
 #include "core/services/lunar_calendar.h"
 
@@ -19,6 +20,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QPixmap>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -32,7 +34,7 @@ bool birthdayForm(QWidget* parent, mcclock::models::Birthday& b, bool isNew) {
     QDialog dlg(parent);
     dlg.setWindowTitle(isNew ? QStringLiteral("\u65b0\u589e\u751f\u65e5")   // 新增生日
                              : QStringLiteral("\u7f16\u8f91\u751f\u65e5")); // 编辑生日
-    dlg.resize(420, 340);
+    dlg.resize(420, 380);
     auto* layout = new QFormLayout(&dlg);
 
     auto* nameEdit = new QLineEdit(b.name, &dlg);
@@ -126,8 +128,19 @@ bool birthdayForm(QWidget* parent, mcclock::models::Birthday& b, bool isNew) {
     layout->addRow(btnRow);
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
-    if (dlg.exec() != QDialog::Accepted) return false;
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(&dlg, isNew ? QStringLiteral("\u65b0\u589e\u751f\u65e5") : QStringLiteral("\u7f16\u8f91\u751f\u65e5"));
+    dlg.resize(380, 380);
+    
+    // Show overlay on parent
+    FramelessHelper::showOverlay(parent);
+    
+    if (dlg.exec() != QDialog::Accepted) {
+        FramelessHelper::hideOverlay(parent);
+        return false;
+    }
+    FramelessHelper::hideOverlay(parent);
 
     if (nameEdit->text().trimmed().isEmpty()) {
         QMessageBox::warning(&dlg, QStringLiteral("\u63d0\u793a"),

@@ -1,5 +1,7 @@
 #include "countdown_page.h"
 #include "widgets/reminder_popup.h"
+#include "widgets/frameless_helper.h"
+#include "widgets/frameless_messagebox.h"
 #include "core/services/business_services.h"
 #include "core/services/ringtone_manager.h"
 #include "core/dal/settings_manager.h"
@@ -20,6 +22,7 @@
 #include <QTimer>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -144,7 +147,7 @@ bool countdownForm(QWidget* parent, mcclock::models::Countdown& c, bool isNew) {
     QDialog dlg(parent);
     dlg.setWindowTitle(isNew ? QStringLiteral("\u65b0\u589e\u5012\u8ba1\u65f6")   // 新增倒计时
                              : QStringLiteral("\u7f16\u8f91\u5012\u8ba1\u65f6")); // 编辑倒计时
-    dlg.resize(400, 260);
+    dlg.resize(400, 300);
     auto* layout = new QFormLayout(&dlg);
 
     auto* labelEdit = new QLineEdit(c.label, &dlg);
@@ -215,8 +218,19 @@ bool countdownForm(QWidget* parent, mcclock::models::Countdown& c, bool isNew) {
     layout->addRow(btnRow);
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
-    if (dlg.exec() != QDialog::Accepted) return false;
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(&dlg, isNew ? QStringLiteral("\u65b0\u589e\u5012\u8ba1\u65f6") : QStringLiteral("\u7f16\u8f91\u5012\u8ba1\u65f6"));
+    dlg.resize(400, 340);
+    
+    // Show overlay on parent
+    FramelessHelper::showOverlay(parent);
+    
+    if (dlg.exec() != QDialog::Accepted) {
+        FramelessHelper::hideOverlay(parent);
+        return false;
+    }
+    FramelessHelper::hideOverlay(parent);
 
     c.label = labelEdit->text();
     c.mode = modeCombo->currentData().toInt();
@@ -276,13 +290,13 @@ void CountdownPage::deleteSelected() {
     if (count == 1) {
         auto c = currentSelected();
         if (c.uuid.isEmpty()) return;
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-                QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u5012\u8ba1\u65f6\uff1f")) == QMessageBox::Yes) { // 确定删除该倒计时？
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u5012\u8ba1\u65f6\uff1f")) == QMessageBox::Yes) { // \u786e\u5b9a\u5220\u9664\u8be5\u5012\u8ba1\u65f6\uff1f
             CountdownService().remove(c.uuid);
         }
     } else {
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
-                QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u5012\u8ba1\u65f6\uff1f").arg(count)) // 确定删除 X 个倒计时？
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+                QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u5012\u8ba1\u65f6\uff1f").arg(count)) // \u786e\u5b9a\u5220\u9664 X \u4e2a\u5012\u8ba1\u65f6\uff1f
             == QMessageBox::Yes) {
             for (int row : rows) {
                 QString uuid = table_->item(row, 0)->data(Qt::UserRole).toString();
@@ -417,7 +431,7 @@ void CountdownPage::showFullscreen() {
         }
     }
     if (!found) {
-        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u9009\u62e9\u8981\u5168\u5c4f\u663e\u793a\u7684\u5012\u8ba1\u65f6\uff01"));
         return;
     }

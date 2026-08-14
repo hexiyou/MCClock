@@ -4,6 +4,10 @@
 #include <QVector>
 #include <QColor>
 
+class QMouseEvent;
+class QShowEvent;
+class QCloseEvent;
+
 namespace mcclock::gui {
 
 class ThemeDialog : public QDialog {
@@ -19,6 +23,17 @@ public:
 
 signals:
     void colorSelected(const QColor& color);
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
+
+public slots:
+    void reject() override;
+    void accept() override;
 
 private:
     QColor selectedColor_;

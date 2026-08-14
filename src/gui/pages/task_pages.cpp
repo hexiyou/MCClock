@@ -1,4 +1,6 @@
 #include "task_pages.h"
+#include "widgets/frameless_helper.h"
+#include "widgets/frameless_messagebox.h"
 #include "core/services/business_services.h"
 #include "core/services/cycle_utils.h"
 #include "core/utils/platform_utils.h"
@@ -25,6 +27,7 @@
 #include <QJsonObject>
 #include <QColor>
 #include <QEvent>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
@@ -392,7 +395,7 @@ void ShutdownPage::addTask() {
     mcclock::models::ShutdownTask t;
     QDialog dlg(this);
     dlg.setWindowTitle(QStringLiteral("\u65b0\u589e\u5173\u673a\u4efb\u52a1")); // 新增关机任务
-    dlg.resize(380, 260);
+    dlg.resize(380, 300);
     auto* layout = new QFormLayout(&dlg);
 
     auto* timeEdit = new QTimeEdit(&dlg);
@@ -429,8 +432,16 @@ void ShutdownPage::addTask() {
     layout->addRow(btnRow);
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(&dlg, QStringLiteral("\u65b0\u589e\u5173\u673a\u4efb\u52a1"));
+    dlg.resize(380, 340);
+    
+    // Show overlay on parent
+    FramelessHelper::showOverlay(this);
+    
     if (dlg.exec() == QDialog::Accepted) {
+        FramelessHelper::hideOverlay(this);
         t.time = timeEdit->time().toString("HH:mm");
         t.cycleData = cycle.buildCycleData(t.cycleMode);
         t.shutdownOption = optionCombo->currentData().toInt();
@@ -439,6 +450,8 @@ void ShutdownPage::addTask() {
         ShutdownService().add(t);
         refresh();
         emit dataChanged();
+    } else {
+        FramelessHelper::hideOverlay(this);
     }
 }
 
@@ -452,7 +465,7 @@ void ShutdownPage::editSelected() {
 
     QDialog dlg(this);
     dlg.setWindowTitle(QStringLiteral("\u7f16\u8f91\u5173\u673a\u4efb\u52a1")); // 编辑关机任务
-    dlg.resize(380, 260);
+    dlg.resize(380, 300);
     auto* layout = new QFormLayout(&dlg);
 
     auto* timeEdit = new QTimeEdit(&dlg);
@@ -491,8 +504,16 @@ void ShutdownPage::editSelected() {
     layout->addRow(btnRow);
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(&dlg, QStringLiteral("\u7f16\u8f91\u5173\u673a\u4efb\u52a1"));
+    dlg.resize(380, 340);
+    
+    // Show overlay on parent
+    FramelessHelper::showOverlay(this);
+    
     if (dlg.exec() == QDialog::Accepted) {
+        FramelessHelper::hideOverlay(this);
         t.time = timeEdit->time().toString("HH:mm");
         t.cycleData = cycle.buildCycleData(t.cycleMode);
         t.shutdownOption = optionCombo->currentData().toInt();
@@ -501,6 +522,8 @@ void ShutdownPage::editSelected() {
         svc.update(t);
         refresh();
         emit dataChanged();
+    } else {
+        FramelessHelper::hideOverlay(this);
     }
 }
 
@@ -520,12 +543,12 @@ void ShutdownPage::deleteSelected() {
 
     if (count == 1) {
         QString uuid = table_->item(rows.first(), 0)->data(Qt::UserRole).toString();
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) { // 确定删除该任务？
             ShutdownService().remove(uuid);
         }
     } else {
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u4efb\u52a1\uff1f").arg(count)) // 确定删除 X 个任务？
             == QMessageBox::Yes) {
             for (int row : rows) {
@@ -544,7 +567,7 @@ void ShutdownPage::executeSelected() {
     ShutdownService svc;
     auto t = svc.findByUuid(uuid);
     if (t.uuid.isEmpty()) return;
-    if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+    if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
             QStringLiteral("\u7acb\u5373\u6267\u884c\u8be5\u5173\u673a\u64cd\u4f5c\uff1f")) == QMessageBox::Yes) { // 立即执行该关机操作？
         svc.executeNow(t);
     }
@@ -637,7 +660,7 @@ bool runProgramForm(QWidget* parent, mcclock::models::RunProgramTask& t, bool is
     QDialog dlg(parent);
     dlg.setWindowTitle(isNew ? QStringLiteral("\u65b0\u589e\u8fd0\u884c\u7a0b\u5e8f\u4efb\u52a1")   // 新增运行程序任务
                               : QStringLiteral("\u7f16\u8f91\u8fd0\u884c\u7a0b\u5e8f\u4efb\u52a1")); // 编辑运行程序任务
-    dlg.resize(440, 280);
+    dlg.resize(440, 320);
     auto* layout = new QFormLayout(&dlg);
 
     auto* timeEdit = new QTimeEdit(&dlg);
@@ -684,15 +707,26 @@ bool runProgramForm(QWidget* parent, mcclock::models::RunProgramTask& t, bool is
     layout->addRow(btnRow);
     QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
-    if (dlg.exec() != QDialog::Accepted) return false;
+    
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(&dlg, isNew ? QStringLiteral("\u65b0\u589e\u5b9a\u65f6\u8fd0\u884c") : QStringLiteral("\u7f16\u8f91\u5b9a\u65f6\u8fd0\u884c"));
+    dlg.resize(380, 340);
+    
+    // Show overlay on parent
+    FramelessHelper::showOverlay(parent);
+    
+    if (dlg.exec() != QDialog::Accepted) {
+        FramelessHelper::hideOverlay(parent);
+        return false;
+    }
+    FramelessHelper::hideOverlay(parent);
 
     QString path = pathEdit->text().trimmed();
     if (path.isEmpty()) return false;
     // URL detection: warn but allow; expand environment variables before existence check
     const QString expandedPath = mcclock::utils::PlatformUtils::expandEnvVars(path);
     if (!RunProgramService::isUrl(path) && !QFile::exists(expandedPath)) {
-        if (QMessageBox::question(&dlg, QStringLiteral("\u63d0\u793a"),
+        if (FramelessMessageBox::question(&dlg, QStringLiteral("\u63d0\u793a"),
                 QStringLiteral("\u6587\u4ef6\u4e0d\u5b58\u5728\uff0c\u4ecd\u8981\u4fdd\u5b58\uff1f")) != QMessageBox::Yes) { // 文件不存在，仍要保存？
             return false;
         }
@@ -747,12 +781,12 @@ void RunProgramPage::deleteSelected() {
 
     if (count == 1) {
         QString uuid = table_->item(rows.first(), 0)->data(Qt::UserRole).toString();
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u5220\u9664\u8be5\u4efb\u52a1\uff1f")) == QMessageBox::Yes) {
             RunProgramService().remove(uuid);
         }
     } else {
-        if (QMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
+        if (FramelessMessageBox::question(this, QStringLiteral("\u786e\u8ba4"),
                 QStringLiteral("\u786e\u5b9a\u5220\u9664 %1 \u4e2a\u4efb\u52a1\uff1f").arg(count)) // 确定删除 X 个任务？
             == QMessageBox::Yes) {
             for (int row : rows) {
@@ -772,7 +806,7 @@ void RunProgramPage::testRunSelected() {
     auto t = svc.findByUuid(uuid);
     if (t.uuid.isEmpty()) return;
     if (!svc.executeNow(t)) {
-        QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u9519\u8bef"),
             QStringLiteral("\u542f\u52a8\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8def\u5f84")); // \u542f\u52a8\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u8def\u5f84
     }
 }
@@ -784,12 +818,12 @@ void RunProgramPage::copySelected() {
         selectedRows.insert(item->row());
     }
     if (selectedRows.isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u8bf7\u9009\u62e9\u4e00\u6761\u8981\u590d\u5236\u7684\u4efb\u52a1"));
         return;
     }
     if (selectedRows.size() > 1) {
-        QMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::warning(this, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u6bcf\u6b21\u53ea\u80fd\u590d\u5236\u4e00\u6761\u8bb0\u5f55"));
         return;
     }
@@ -801,7 +835,7 @@ void RunProgramPage::copySelected() {
 
     // Show input dialog for label
     bool ok = false;
-    QString newLabel = QInputDialog::getText(this, QStringLiteral("\u590d\u5236\u4efb\u52a1"),
+    QString newLabel = FramelessInputDialog::getText(this, QStringLiteral("\u590d\u5236\u4efb\u52a1"),
         QStringLiteral("\u8bf7\u8f93\u5165\u5907\u6ce8\u4fe1\u606f\uff1a"),
         QLineEdit::Normal, t.label, &ok);
     if (!ok) return;

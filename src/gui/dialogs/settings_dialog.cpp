@@ -1,5 +1,7 @@
 #include "settings_dialog.h"
 #include "../theme_manager.h"
+#include "../widgets/frameless_helper.h"
+#include "../widgets/frameless_messagebox.h"
 #include "core/dal/settings_manager.h"
 #include "core/utils/platform_utils.h"
 #include "core/services/business_services.h"
@@ -27,15 +29,17 @@
 #include <QFrame>
 #include <QRandomGenerator>
 #include <QPainter>
+#include <QMouseEvent>
 
 namespace mcclock::gui {
 
 SettingsDialog::SettingsDialog(QWidget* parent)
     : QDialog(parent)
 {
-    setWindowTitle(QStringLiteral("\u5168\u5c40\u8bbe\u7f6e")); // 全局设置
+    setWindowTitle(QStringLiteral("全局设置")); // 全局设置
     resize(520, 460);
 
+    // Build UI first, THEN apply frameless style
     auto* root = new QVBoxLayout(this);
     root->setContentsMargins(12, 12, 12, 12);
 
@@ -63,6 +67,29 @@ SettingsDialog::SettingsDialog(QWidget* parent)
     connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
 
     loadSettings();
+
+    // Apply frameless style AFTER all controls are created
+    FramelessHelper::applyToInlineDialog(this, QStringLiteral("\u5168\u5c40\u8bbe\u7f6e"));
+}
+
+void SettingsDialog::showEvent(QShowEvent* event) {
+    QDialog::showEvent(event);
+    FramelessHelper::showOverlay(parentWidget());
+}
+
+void SettingsDialog::closeEvent(QCloseEvent* event) {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::closeEvent(event);
+}
+
+void SettingsDialog::reject() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::reject();
+}
+
+void SettingsDialog::accept() {
+    FramelessHelper::hideOverlay(parentWidget());
+    QDialog::accept();
 }
 
 QWidget* SettingsDialog::createGeneralTab() {
@@ -84,7 +111,7 @@ QWidget* SettingsDialog::createGeneralTab() {
     auto* updateBtn = new QPushButton(QStringLiteral("\u7acb\u5373\u68c0\u67e5\u66f4\u65b0"), page); // 立即检查更新
     updateBtn->setFixedWidth(160);
     connect(updateBtn, &QPushButton::clicked, page, [page]() {
-        QMessageBox::information(page, QStringLiteral("\u68c0\u67e5\u66f4\u65b0"),
+        FramelessMessageBox::information(page, QStringLiteral("\u68c0\u67e5\u66f4\u65b0"),
             QStringLiteral("\u68c0\u67e5\u66f4\u65b0\u529f\u80fd\u6682\u672a\u4e0a\u7ebf")); // 检查更新功能暂未上线
     });
     layout->addWidget(updateBtn);
@@ -262,11 +289,11 @@ QWidget* SettingsDialog::createAdvancedTab() {
     accountLayout->addWidget(registerBtn);
     accountLayout->addStretch();
     connect(loginBtn, &QPushButton::clicked, page, [page]() {
-        QMessageBox::information(page, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::information(page, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u529f\u80fd\u6682\u672a\u4e0a\u7ebf")); // 功能暂未上线
     });
     connect(registerBtn, &QPushButton::clicked, page, [page]() {
-        QMessageBox::information(page, QStringLiteral("\u63d0\u793a"),
+        FramelessMessageBox::information(page, QStringLiteral("\u63d0\u793a"),
             QStringLiteral("\u529f\u80fd\u6682\u672a\u4e0a\u7ebf")); // 功能暂未上线
     });
     layout->addWidget(accountGroup);
@@ -403,7 +430,7 @@ void SettingsDialog::exportAllData() {
 
     QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
+        FramelessMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
             QStringLiteral("\u65e0\u6cd5\u5199\u5165\u6587\u4ef6")); // 无法写入文件
         return;
     }
@@ -411,7 +438,7 @@ void SettingsDialog::exportAllData() {
     file.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
     file.close();
 
-    QMessageBox::information(this, QStringLiteral("\u6210\u529f"), // 成功
+    FramelessMessageBox::information(this, QStringLiteral("\u6210\u529f"), // 成功
         QStringLiteral("\u6570\u636e\u5df2\u5bfc\u51fa\u5230\uff1a%1").arg(filePath)); // 数据已导出到：
 }
 
@@ -425,7 +452,7 @@ void SettingsDialog::importAllData() {
 
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) {
-        QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
+        FramelessMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
             QStringLiteral("\u65e0\u6cd5\u8bfb\u53d6\u6587\u4ef6")); // 无法读取文件
         return;
     }
@@ -435,7 +462,7 @@ void SettingsDialog::importAllData() {
     file.close();
 
     if (err.error != QJsonParseError::NoError || !doc.isObject()) {
-        QMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
+        FramelessMessageBox::warning(this, QStringLiteral("\u9519\u8bef"), // 错误
             QStringLiteral("\u6587\u4ef6\u683c\u5f0f\u65e0\u6548")); // 文件格式无效
         return;
     }
@@ -443,7 +470,7 @@ void SettingsDialog::importAllData() {
     QJsonObject root = doc.object();
 
     // Confirm import
-    QMessageBox::StandardButton reply = QMessageBox::question(this,
+    QMessageBox::StandardButton reply = FramelessMessageBox::question(this,
         QStringLiteral("\u786e\u8ba4\u5bfc\u5165"), // 确认导入
         QStringLiteral("\u5bfc\u5165\u5c06\u8986\u76d6\u73b0\u6709\u6570\u636e\uff0c\u662f\u5426\u7ee7\u7eed\uff1f"), // 导入将覆盖现有数据，是否继续？
         QMessageBox::Yes | QMessageBox::No);
@@ -559,7 +586,7 @@ void SettingsDialog::importAllData() {
         }
     }
 
-    QMessageBox::information(this, QStringLiteral("\u6210\u529f"), // 成功
+    FramelessMessageBox::information(this, QStringLiteral("\u6210\u529f"), // 成功
         QStringLiteral("\u6570\u636e\u5bfc\u5165\u5b8c\u6210")); // 数据导入完成
 
     // Reload settings to reflect imported data
@@ -675,6 +702,21 @@ QWidget* SettingsDialog::createAboutTab() {
     layout->addStretch();
 
     return page;
+}
+
+void SettingsDialog::mousePressEvent(QMouseEvent* event) {
+    if (!framelessMousePress(this, event))
+        QDialog::mousePressEvent(event);
+}
+
+void SettingsDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (!framelessMouseMove(this, event))
+        QDialog::mouseMoveEvent(event);
+}
+
+void SettingsDialog::mouseReleaseEvent(QMouseEvent* event) {
+    if (!framelessMouseRelease(this, event))
+        QDialog::mouseReleaseEvent(event);
 }
 
 } // namespace mcclock::gui

@@ -1,6 +1,7 @@
 #include "sidebar_widget.h"
 #include "sticky_note_widget.h"
 #include "dialogs/time_calculator_dialog.h"
+#include "frameless_helper.h"
 
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -89,7 +90,14 @@ void SidebarWidget::openCalendar() {
         label->setText(cal->selectedDate().toString("yyyy-MM-dd dddd"));
     });
     dlg.resize(420, 360);
+    
+    // Apply frameless style
+    FramelessHelper::applyToInlineDialog(&dlg, QStringLiteral("\u65e5\u5386"));
+    
+    // Show overlay
+    FramelessHelper::showOverlay(this);
     dlg.exec();
+    FramelessHelper::hideOverlay(this);
 }
 
 void SidebarWidget::toggleStickyNote() {

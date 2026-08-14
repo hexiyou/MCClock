@@ -16,6 +16,7 @@
 #include "pages/health_page.h"
 #include "dialogs/missed_reminder_dialog.h"
 #include "theme_manager.h"
+#include "widgets/frameless_helper.h"
 #include "core/services/scheduler.h"
 #include "core/services/ringtone_manager.h"
 #include "core/services/business_services.h"
@@ -34,6 +35,7 @@
 #include <QApplication>
 #include <QEvent>
 #include <QAction>
+#include <QMouseEvent>
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QPlainTextEdit>
@@ -51,6 +53,11 @@ MainWindow::MainWindow(QWidget* parent)
     setFixedSize(860, 480);
 
     setupUi();
+
+    // Flat frameless window
+    FramelessHelper::setup(this);
+    FramelessHelper::setMaximizeEnabled(this, false);
+
     setupTray();
     setupScheduler();
     setupDesktopClock();
@@ -121,6 +128,9 @@ void MainWindow::setupUi() {
     root->addLayout(body, 1);
 
     setCentralWidget(central);
+
+    // Flat window border
+    setStyleSheet(QStringLiteral("QMainWindow { background: white; border: 1px solid #D0D0D0; }"));
 
     connect(navBar_, &NavigationBar::currentIndexChanged,
             pages_, &QStackedWidget::setCurrentIndex);
@@ -545,6 +555,21 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event) {
         }
     }
     return QMainWindow::eventFilter(obj, event);
+}
+
+void MainWindow::mousePressEvent(QMouseEvent* event) {
+    if (!framelessMousePress(this, event))
+        QMainWindow::mousePressEvent(event);
+}
+
+void MainWindow::mouseMoveEvent(QMouseEvent* event) {
+    if (!framelessMouseMove(this, event))
+        QMainWindow::mouseMoveEvent(event);
+}
+
+void MainWindow::mouseReleaseEvent(QMouseEvent* event) {
+    if (!framelessMouseRelease(this, event))
+        QMainWindow::mouseReleaseEvent(event);
 }
 
 } // namespace mcclock::gui

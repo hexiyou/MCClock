@@ -13,6 +13,9 @@ class QLineEdit;
 class QStackedWidget;
 class QLabel;
 class QPushButton;
+class QMouseEvent;
+class QShowEvent;
+class QCloseEvent;
 
 namespace mcclock::gui {
 
@@ -25,6 +28,17 @@ public:
                          QWidget* parent = nullptr);
 
     mcclock::models::Alarm alarm() const { return alarm_; }
+
+protected:
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void closeEvent(QCloseEvent* event) override;
+
+public slots:
+    void reject() override;
+    void accept() override;
 
 private slots:
     void onCycleModeChanged(int index);
