@@ -239,6 +239,19 @@ QWidget* SettingsDialog::createAdvancedTab() {
     apiLayout->addRow(QStringLiteral("\u76d1\u542c\u7aef\u53e3\uff1a"), apiPortSpin_); // 监听端口：
     layout->addWidget(apiGroup);
 
+    // Reset sticky note
+    auto* resetGroup = new QGroupBox(QStringLiteral("\u91cd\u7f6e"), page); // \u91cd\u7f6e
+    auto* resetLayout = new QHBoxLayout(resetGroup);
+    auto* resetNoteBtn = new QPushButton(QStringLiteral("\u91cd\u7f6e\u4fbf\u7b7e"), resetGroup); // \u91cd\u7f6e\u4fbf\u7b7e
+    resetNoteBtn->setProperty("flatStyle", "secondary");
+    resetLayout->addWidget(resetNoteBtn);
+    auto* resetLabel = new QLabel(QStringLiteral("\u5982\u679c\u53d1\u73b0\u4fbf\u7b7e\u6253\u4e0d\u5f00\u3001\u627e\u4e0d\u5230\uff0c\u8bf7\u70b9\u51fb\u6b64\u6309\u94ae\u590d\u4f4d\u4fbf\u7b7e\u4f4d\u7f6e"), page); // \u5982\u679c\u53d1\u73b0\u4fbf\u7b7e\u6253\u4e0d\u5f00\u3001\u627e\u4e0d\u5230\uff0c\u8bf7\u70b9\u51fb\u6b64\u6309\u94ae\u590d\u4f4d\u4fbf\u7b7e\u4f4d\u7f6e
+    resetLabel->setStyleSheet("color: #999; font-size: 11px;");
+    resetLayout->addWidget(resetLabel);
+    resetLayout->addStretch();
+    connect(resetNoteBtn, &QPushButton::clicked, this, &SettingsDialog::resetStickyNoteRequested);
+    layout->addWidget(resetGroup);
+
     // Account (cloud sync stub)
     auto* accountGroup = new QGroupBox(QStringLiteral("\u8d26\u53f7\uff08\u4e91\u540c\u6b65\uff09"), page); // 账号（云同步）
     auto* accountLayout = new QHBoxLayout(accountGroup);

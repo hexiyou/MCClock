@@ -18,6 +18,8 @@ class StickyNoteWidget : public QWidget {
 public:
     explicit StickyNoteWidget(QWidget* parent = nullptr);
 
+    void resetPosition();
+
 signals:
     void visibilityChanged(bool visible);
 

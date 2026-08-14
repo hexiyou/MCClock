@@ -119,7 +119,7 @@ void DesktopClockWidget::contextMenuEvent(QContextMenuEvent* e) {
     e->accept();
 }
 
-HourlyChimePopup::HourlyChimePopup(int hour, QWidget* parent)
+HourlyChimePopup::HourlyChimePopup(int hour, int minute, QWidget* parent)
     : QWidget(parent)
 {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
@@ -127,9 +127,12 @@ HourlyChimePopup::HourlyChimePopup(int hour, QWidget* parent)
     setAttribute(Qt::WA_DeleteOnClose);
     setFixedSize(240, 64);
 
+    QString timeStr = (minute > 0)
+        ? QStringLiteral("\u73b0\u5728\u662f %1 \u70b9 %2 \u5206").arg(hour).arg(minute)
+        : QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour);
     auto* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    auto* label = new QLabel(QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour), this); // 现在是 N 点整
+    auto* label = new QLabel(timeStr, this);
     label->setAlignment(Qt::AlignCenter);
     label->setStyleSheet("color: #FFFFFF; font-size: 22px; font-weight: bold;"
                          " background: rgba(33, 150, 243, 220); border-radius: 10px;");

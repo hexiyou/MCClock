@@ -2,6 +2,7 @@
 #include "widgets/navigation_bar.h"
 #include "widgets/reminder_popup.h"
 #include "widgets/sidebar_widget.h"
+#include "widgets/sticky_note_widget.h"
 #include "widgets/desktop_clock_widget.h"
 #include "dialogs/close_confirm_dialog.h"
 #include "dialogs/settings_dialog.h"
@@ -318,7 +319,7 @@ void MainWindow::onHourlyChime(int hour, int minute) {
     const bool voice = (mode == "text_and_voice" || mode == "voice");
 
     if (text) {
-        new HourlyChimePopup(hour, nullptr);
+        new HourlyChimePopup(hour, minute, nullptr);
         QString timeStr = (minute > 0)
             ? QStringLiteral("\u73b0\u5728\u662f %1 \u70b9 %2 \u5206").arg(hour).arg(minute)
             : QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour);
@@ -375,6 +376,12 @@ void MainWindow::openSettings() {
     SettingsDialog dlg(this);
     connect(&dlg, &SettingsDialog::settingsSaved, this, [this]() {
         syncApiServer();
+    });
+    connect(&dlg, &SettingsDialog::resetStickyNoteRequested, this, [this]() {
+        if (auto* note = sidebar_->stickyNote()) {
+            note->resetPosition();
+            sidebar_->setStickyNoteVisible(true);
+        }
     });
     dlg.exec();
 }

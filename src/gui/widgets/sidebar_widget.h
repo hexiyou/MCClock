@@ -18,6 +18,7 @@ public:
     // Sticky note state accessors (used by the tray menu)
     bool stickyNoteVisible() const;
     void setStickyNoteVisible(bool visible);
+    StickyNoteWidget* stickyNote() { return note_; }
 
     // Sync the clock toggle button state (e.g. when toggled from elsewhere)
     void setClockToggleChecked(bool checked);

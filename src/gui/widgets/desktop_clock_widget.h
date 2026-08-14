@@ -37,7 +37,7 @@ private:
 class HourlyChimePopup : public QWidget {
     Q_OBJECT
 public:
-    explicit HourlyChimePopup(int hour, QWidget* parent = nullptr);
+    explicit HourlyChimePopup(int hour, int minute, QWidget* parent = nullptr);
 };
 
 } // namespace mcclock::gui

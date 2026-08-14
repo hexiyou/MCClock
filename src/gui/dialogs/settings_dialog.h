@@ -24,6 +24,7 @@ public:
 signals:
     // Emitted after save so MainWindow can restart API server etc.
     void settingsSaved();
+    void resetStickyNoteRequested();
 
 private:
     QWidget* createGeneralTab();

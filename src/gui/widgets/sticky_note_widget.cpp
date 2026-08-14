@@ -194,6 +194,25 @@ void StickyNoteWidget::save() {
     }
 }
 
+void StickyNoteWidget::resetPosition() {
+    // Reset only position and size, keep everything else
+    QFile f(noteFilePath());
+    if (f.open(QIODevice::ReadOnly)) {
+        QJsonObject obj = QJsonDocument::fromJson(f.readAll()).object();
+        f.close();
+        obj["x"] = 200;
+        obj["y"] = 200;
+        obj["w"] = 260;
+        obj["h"] = 320;
+        if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            f.write(QJsonDocument(obj).toJson());
+        }
+    }
+    // Apply to live widget
+    resize(260, 320);
+    move(200, 200);
+}
+
 void StickyNoteWidget::updateEditorFont() {
     QString family = fontFamily_.isEmpty() ? QStringLiteral("Microsoft YaHei") : fontFamily_;
     editor_->setStyleSheet(
