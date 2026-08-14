@@ -458,14 +458,23 @@ void CountdownPage::showFullscreen() {
 
     connect(exitBtn, &QPushButton::clicked, overlay, &QWidget::close);
 
+    // Ringtone for when countdown finishes
+    auto* ringtone = new RingtoneManager(overlay);
+    auto& settings = mcclock::dal::SettingsManager::instance();
+    connect(exitBtn, &QPushButton::clicked, ringtone, &RingtoneManager::stop);
+
     // Timer to update the countdown display every second
     auto* timer = new QTimer(overlay);
     int remaining = target.remainingSeconds;
-    connect(timer, &QTimer::timeout, overlay, [timeLabel, remaining, timer]() mutable {
+    connect(timer, &QTimer::timeout, overlay, [timeLabel, remaining, timer, ringtone, target, &settings]() mutable {
         --remaining;
         if (remaining < 0) remaining = 0;
         timeLabel->setText(formatHms(remaining));
-        if (remaining <= 0) timer->stop();
+        if (remaining <= 0) {
+            timer->stop();
+            ringtone->play(target.ringtone, target.customRingtonePath,
+                            target.ringMode, target.customMinutes, settings.alarmVolume());
+        }
     });
     timer->start(1000);
 
