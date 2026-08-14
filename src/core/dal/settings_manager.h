@@ -60,6 +60,9 @@ public:
     QJsonArray chimeHours() const;  // Array of ints 1-24
     void setChimeHours(const QJsonArray& v);
 
+    int chimeMinute() const;  // Custom chime interval in minutes (1-20)
+    void setChimeMinute(int v);
+
     // ── Desktop widgets ──
     bool desktopClock() const;
     void setDesktopClock(bool v);
