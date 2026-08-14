@@ -232,6 +232,15 @@ void AlarmDialog::setupUi() {
     connect(rangeCheck_, &QCheckBox::toggled, rangeEndEdit_, &QWidget::setEnabled);
     rangeStartEdit_->setEnabled(false);
     rangeEndEdit_->setEnabled(false);
+
+    // Show/hide custom minutes spinbox based on ring mode
+    // Mode 0 (announce then ring) and 4 (custom duration) need the spinbox
+    auto updateMinutesVisibility = [this](int index) {
+        int mode = ringModeCombo_->itemData(index).toInt();
+        customMinutesSpin_->setVisible(mode == 0 || mode == 4);
+    };
+    connect(ringModeCombo_, &QComboBox::currentIndexChanged, this, updateMinutesVisibility);
+    updateMinutesVisibility(ringModeCombo_->currentIndex());
 }
 
 void AlarmDialog::onCycleModeChanged(int index) {

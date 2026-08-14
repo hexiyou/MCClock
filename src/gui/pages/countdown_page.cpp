@@ -18,6 +18,8 @@
 #include <QDialog>
 #include <QMessageBox>
 #include <QTimer>
+#include <QScreen>
+#include <QGuiApplication>
 
 namespace mcclock::gui {
 
@@ -64,13 +66,16 @@ void CountdownPage::setupUi() {
     auto* delBtn = new QPushButton(QStringLiteral("\u5220\u9664"), this);        // 删除
     auto* startBtn = new QPushButton(QStringLiteral("\u5f00\u59cb/\u505c\u6b62"), this); // 开始/停止
     auto* resetBtn = new QPushButton(QStringLiteral("\u91cd\u7f6e"), this);      // 重置
+    auto* fullscreenBtn = new QPushButton(QStringLiteral("\u5168\u5c4f\u5012\u8ba1\u65f6"), this); // 全屏倒计时
     editBtn->setProperty("flatStyle", "secondary");
     resetBtn->setProperty("flatStyle", "secondary");
+    fullscreenBtn->setProperty("flatStyle", "secondary");
     toolbar->addWidget(addBtn);
     toolbar->addWidget(editBtn);
     toolbar->addWidget(delBtn);
     toolbar->addWidget(startBtn);
     toolbar->addWidget(resetBtn);
+    toolbar->addWidget(fullscreenBtn);
     toolbar->addStretch();
     root->addLayout(toolbar);
 
@@ -99,6 +104,7 @@ void CountdownPage::setupUi() {
     connect(delBtn, &QPushButton::clicked, this, &CountdownPage::deleteSelected);
     connect(startBtn, &QPushButton::clicked, this, &CountdownPage::startStopSelected);
     connect(resetBtn, &QPushButton::clicked, this, &CountdownPage::resetSelected);
+    connect(fullscreenBtn, &QPushButton::clicked, this, &CountdownPage::showFullscreen);
     connect(table_, &QTableWidget::cellDoubleClicked, this, [this](int, int) { startStopSelected(); });
     connect(table_->horizontalHeader(), &QHeaderView::sectionDoubleClicked,
             this, &CountdownPage::onHeaderDoubleClicked);
@@ -390,6 +396,86 @@ void CountdownPage::onHeaderDoubleClicked(int logicalIndex) {
     table_->setSortingEnabled(true);
     table_->sortItems(sortColumn_, sortOrder_);
     table_->setSortingEnabled(false);
+}
+
+void CountdownPage::showFullscreen() {
+    // Find the countdown to display: prefer selected, fallback to first "Ready" one
+    models::Countdown target;
+    bool found = false;
+
+    auto rows = table_->selectionModel()->selectedRows();
+    if (!rows.isEmpty()) {
+        int row = rows.first().row();
+        QString uuid = table_->item(row, 0)->data(Qt::UserRole).toString();
+        for (const auto& c : CountdownService().findAll()) {
+            if (c.uuid == uuid) { target = c; found = true; break; }
+        }
+    }
+    if (!found) {
+        for (const auto& c : CountdownService().findAll()) {
+            if (c.enabled) { target = c; found = true; break; }
+        }
+    }
+    if (!found) {
+        QMessageBox::information(this, QStringLiteral("\u63d0\u793a"),
+            QStringLiteral("\u8bf7\u9009\u62e9\u8981\u5168\u5c4f\u663e\u793a\u7684\u5012\u8ba1\u65f6\uff01"));
+        return;
+    }
+
+    // Create fullscreen overlay
+    auto* overlay = new QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+    overlay->setAttribute(Qt::WA_DeleteOnClose);
+    overlay->setStyleSheet("background-color: rgba(38, 50, 56, 235);");
+    auto* layout = new QVBoxLayout(overlay);
+
+    // Countdown label (large font)
+    auto* timeLabel = new QLabel(formatHms(target.remainingSeconds), overlay);
+    timeLabel->setAlignment(Qt::AlignCenter);
+    timeLabel->setStyleSheet("color: #FFFFFF; font-size: 96px; font-weight: bold;"
+                             " font-family: 'Consolas', 'Courier New', monospace;");
+    layout->addWidget(timeLabel);
+
+    // Title label
+    QString titleText = target.label.isEmpty()
+        ? QStringLiteral("\u5012\u8ba1\u65f6")
+        : target.label;
+    auto* titleLabel = new QLabel(titleText, overlay);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("color: #B0BEC5; font-size: 24px;");
+    layout->addWidget(titleLabel);
+
+    // Exit button
+    auto* exitBtn = new QPushButton(QStringLiteral("\u9000\u51fa\u5168\u5c4f"), overlay);
+    exitBtn->setStyleSheet("QPushButton { color: #FFFFFF; background: rgba(255,255,255,30);"
+                           " border: 2px solid #FFFFFF; border-radius: 8px;"
+                           " padding: 12px 40px; font-size: 20px; }"
+                           "QPushButton:hover { background: rgba(255,255,255,60); }");
+    auto* btnLayout = new QHBoxLayout();
+    btnLayout->addStretch();
+    btnLayout->addWidget(exitBtn);
+    btnLayout->addStretch();
+    layout->addLayout(btnLayout);
+
+    connect(exitBtn, &QPushButton::clicked, overlay, &QWidget::close);
+
+    // Timer to update the countdown display every second
+    auto* timer = new QTimer(overlay);
+    int remaining = target.remainingSeconds;
+    connect(timer, &QTimer::timeout, overlay, [timeLabel, remaining, timer]() mutable {
+        --remaining;
+        if (remaining < 0) remaining = 0;
+        timeLabel->setText(formatHms(remaining));
+        if (remaining <= 0) timer->stop();
+    });
+    timer->start(1000);
+
+    // Show fullscreen on primary screen
+    if (auto* screen = QGuiApplication::primaryScreen()) {
+        overlay->setGeometry(screen->availableGeometry());
+    }
+    overlay->showFullScreen();
+    overlay->raise();
+    overlay->activateWindow();
 }
 
 } // namespace mcclock::gui

@@ -28,6 +28,7 @@ private slots:
     void deleteSelected();
     void startStopSelected();
     void resetSelected();
+    void showFullscreen();
     void onTick();
     void onHeaderDoubleClicked(int logicalIndex);
 

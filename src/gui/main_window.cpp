@@ -218,8 +218,22 @@ void MainWindow::setupScheduler() {
     connect(scheduler_, &mcclock::services::Scheduler::alarmTriggered,
             this, [this](const mcclock::models::Alarm& alarm) {
         auto& settings = mcclock::dal::SettingsManager::instance();
-        ringtone_->play(alarm.ringtone, alarm.customRingtonePath, alarm.ringMode,
-                        alarm.customMinutes, settings.alarmVolume());
+
+        if (alarm.ringMode == 0) {
+            // AnnounceTime: speak time first, then ring after voice finishes
+            int h = QTime::fromString(alarm.time, "HH:mm").hour();
+            int m = QTime::fromString(alarm.time, "HH:mm").minute();
+            ringtone_->speakTime(h, m, settings.alarmVolume());
+            // After voice announcement (~5s), start ringing for customMinutes duration
+            QTimer::singleShot(5000, this, [this, alarm, &settings]() {
+                ringtone_->play(alarm.ringtone, alarm.customRingtonePath,
+                                4, // Custom duration mode
+                                alarm.customMinutes, settings.alarmVolume());
+            });
+        } else {
+            ringtone_->play(alarm.ringtone, alarm.customRingtonePath, alarm.ringMode,
+                            alarm.customMinutes, settings.alarmVolume());
+        }
 
         QString msg = QStringLiteral("\u73b0\u5728\u662f %1").arg(alarm.time); // 现在是 HH:mm
         if (!alarm.label.isEmpty()) {
