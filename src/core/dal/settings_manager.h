@@ -57,8 +57,11 @@ public:
     QString chimeCycle() const;  // "hourly", "half_hour", "custom"
     void setChimeCycle(const QString& v);
 
-    QJsonArray chimeHours() const;  // Array of ints 1-24
+    QJsonArray chimeHours() const;  // Array of ints 1-24 (kept for backward compat)
     void setChimeHours(const QJsonArray& v);
+
+    int chimeMinute() const;  // Custom chime minute (0-59), default -1
+    void setChimeMinute(int v);
 
     // ── Desktop widgets ──
     bool desktopClock() const;

@@ -52,7 +52,7 @@ private slots:
     void openSettings();
     void onTrayActivated(QSystemTrayIcon::ActivationReason reason);
     void onAlarmTriggered();
-    void onHourlyChime(int hour);
+    void onHourlyChime(int hour, int minute);
 
 private:
     void setupUi();

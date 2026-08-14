@@ -30,7 +30,7 @@ signals:
     void shutdownWarning(const mcclock::models::ShutdownTask& task, int secondsLeft);
     void shutdownDue(const mcclock::models::ShutdownTask& task);
     void runProgramTriggered(const mcclock::models::RunProgramTask& task);
-    void hourlyChime(int hour);
+    void hourlyChime(int hour, int minute);
     void tick(const QDateTime& now);
 
 private slots:
