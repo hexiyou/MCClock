@@ -311,7 +311,7 @@ void MainWindow::onAlarmTriggered() {
     // Handled in the lambda above
 }
 
-void MainWindow::onHourlyChime(int hour) {
+void MainWindow::onHourlyChime(int hour, int minute) {
     auto& settings = mcclock::dal::SettingsManager::instance();
     const QString mode = settings.chimeMode();
     const bool text = (mode == "text_and_voice" || mode == "text");
@@ -320,13 +320,15 @@ void MainWindow::onHourlyChime(int hour) {
     if (text) {
         // Floating popup at top of screen
         new HourlyChimePopup(hour, nullptr);
-        trayIcon_->showMessage(QStringLiteral("\u6574\u70b9\u62a5\u65f6"), // 整点报时
-            QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour),
+        QString timeStr = (minute > 0)
+            ? QStringLiteral("\u73b0\u5728\u662f %1 \u70b9 %2 \u5206").arg(hour).arg(minute)
+            : QStringLiteral("\u73b0\u5728\u662f %1 \u70b9\u6574").arg(hour);
+        trayIcon_->showMessage(QStringLiteral("\u6574\u70b9\u62a5\u65f6"),
+            timeStr,
             QSystemTrayIcon::Information, 3000);
     }
     if (voice) {
-        // Voice announcement: "现在时间是 早/下午/晚上 N 点"
-        ringtone_->speakTime(hour, -1, settings.alarmVolume());
+        ringtone_->speakTime(hour, minute, settings.alarmVolume());
     }
 }
 

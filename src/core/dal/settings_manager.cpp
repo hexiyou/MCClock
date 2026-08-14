@@ -187,6 +187,9 @@ QJsonArray SettingsManager::chimeHours() const {
 }
 void SettingsManager::setChimeHours(const QJsonArray& v) { SET_VAL("hourly_chime", "hours", v); }
 
+int SettingsManager::chimeMinute() const { return GET_INT("hourly_chime", "minute", 0); }
+void SettingsManager::setChimeMinute(int v) { SET_VAL("hourly_chime", "minute", v); }
+
 // ── Desktop widgets ──
 bool SettingsManager::desktopClock() const { return GET_BOOL("desktop_widgets", "desktop_clock", true); }
 void SettingsManager::setDesktopClock(bool v) { SET_VAL("desktop_widgets", "desktop_clock", v); }
