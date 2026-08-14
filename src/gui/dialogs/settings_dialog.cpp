@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QLabel>
+#include <QGridLayout>
 #include <QMessageBox>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -174,25 +175,23 @@ QWidget* SettingsDialog::createChimeTab() {
     auto* cycleRow = new QHBoxLayout();
     cycleRow->addWidget(new QLabel(QStringLiteral("\u62a5\u65f6\u5468\u671f\uff1a"), page)); // 报时周期：
     chimeCycleCombo_ = new QComboBox(page);
-    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u5c0f\u65f6"), "hourly");       // \u6bcf\u5c0f\u65f6
-    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u534a\u5c0f\u65f6"), "half_hour"); // \u6bcf\u534a\u5c0f\u65f6
-    chimeCycleCombo_->addItem(QStringLiteral("\u81ea\u5b9a\u4e49\u5206\u949f"), "custom"); // \u81ea\u5b9a\u4e49\u5206\u949f
+    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u5c0f\u65f6"), "hourly");       // 每小时
+    chimeCycleCombo_->addItem(QStringLiteral("\u6bcf\u534a\u5c0f\u65f6"), "half_hour"); // 每半小时
+    chimeCycleCombo_->addItem(QStringLiteral("\u81ea\u5b9a\u4e49\u5c0f\u65f6"), "custom"); // 自定义小时
     cycleRow->addWidget(chimeCycleCombo_);
     cycleRow->addStretch();
     layout->addLayout(cycleRow);
-    
-    // Custom minute selector
-    auto* minuteRow = new QHBoxLayout();
-    minuteRow->addWidget(new QLabel(QStringLiteral("\u62a5\u65f6\u5206\u6570\uff1a"), page)); // \u62a5\u65f6\u5206\u6570\uff1a
-    chimeMinuteCombo_ = new QComboBox(page);
-    chimeMinuteCombo_->addItem(QStringLiteral("\u6bcf\u5c0f\u65f6\u6574\u70b9"), -1); // \u6bcf\u5c0f\u65f6\u6574\u70b9
-    for (int m : {1, 2, 3, 4, 5, 6, 10, 12, 15, 20}) {
-        chimeMinuteCombo_->addItem(QStringLiteral("%1 \u5206").arg(m), m); // X \u5206
+
+    // Custom hours grid (0-23)
+    auto* hoursGroup = new QGroupBox(QStringLiteral("\u81ea\u5b9a\u4e49\u62a5\u65f6\u5c0f\u65f6"), page); // 自定义报时小时
+    auto* grid = new QGridLayout(hoursGroup);
+    for (int h = 0; h < 24; ++h) {
+        auto* check = new QCheckBox(QStringLiteral("%1\u70b9").arg(h), hoursGroup); // X点
+        grid->addWidget(check, h / 6, h % 6);
+        chimeHourChecks_.append(check);
     }
-    minuteRow->addWidget(chimeMinuteCombo_);
-    minuteRow->addStretch();
-    layout->addLayout(minuteRow);
-    
+    layout->addWidget(hoursGroup);
+
     layout->addStretch();
     return page;
 }
@@ -270,7 +269,10 @@ void SettingsDialog::loadSettings() {
 
     chimeModeCombo_->setCurrentIndex(chimeModeCombo_->findData(s.chimeMode()));
     chimeCycleCombo_->setCurrentIndex(chimeCycleCombo_->findData(s.chimeCycle()));
-    chimeMinuteCombo_->setCurrentIndex(chimeMinuteCombo_->findData(s.chimeMinute()));
+    const QJsonArray hours = s.chimeHours();
+    for (int h = 0; h < chimeHourChecks_.size() && h < 24; ++h) {
+        chimeHourChecks_[h]->setChecked(hours.contains(QJsonValue(h)));
+    }
 
     apiEnabledCheck_->setChecked(s.httpApiEnabled());
     apiIpEdit_->setText(s.httpApiBindIp());
@@ -297,7 +299,11 @@ void SettingsDialog::saveSettings() {
 
     s.setChimeMode(chimeModeCombo_->currentData().toString());
     s.setChimeCycle(chimeCycleCombo_->currentData().toString());
-    s.setChimeMinute(chimeMinuteCombo_->currentData().toInt());
+    QJsonArray hours;
+    for (int h = 0; h < chimeHourChecks_.size() && h < 24; ++h) {
+        if (chimeHourChecks_[h]->isChecked()) hours.append(h);
+    }
+    s.setChimeHours(hours);
 
     s.setHttpApiEnabled(apiEnabledCheck_->isChecked());
     s.setHttpApiBindIp(apiIpEdit_->text());

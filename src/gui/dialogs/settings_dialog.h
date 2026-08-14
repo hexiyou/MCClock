@@ -54,7 +54,7 @@ private:
     // Tab 3
     QComboBox* chimeModeCombo_ = nullptr;
     QComboBox* chimeCycleCombo_ = nullptr;
-    QComboBox* chimeMinuteCombo_ = nullptr;
+    QList<QCheckBox*> chimeHourChecks_;
 
     // Tab 4
     QCheckBox* apiEnabledCheck_ = nullptr;
