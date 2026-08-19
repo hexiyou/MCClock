@@ -153,6 +153,23 @@ public:
     void setupRoutes() {
         auto onChanged = [this]() { emit dataChanged(); };
 
+        // ── CORS: allow any origin ──
+        // post_routing_handler runs after every route handler; skip OPTIONS
+        // because the Options() handler below already sets the headers directly.
+        svr_.set_post_routing_handler([](const httplib::Request& req, httplib::Response& res) {
+            if (req.method == "OPTIONS") return;
+            res.set_header("Access-Control-Allow-Origin", "*");
+            res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        });
+        // Handle preflight OPTIONS requests
+        svr_.Options(".*", [](const httplib::Request&, httplib::Response& res) {
+            res.set_header("Access-Control-Allow-Origin", "*");
+            res.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+            res.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            res.status = 200;
+        });
+
         // Alarms (DELETE moves to recycle bin)
         registerCrud(svr_, "/api/v1/alarms", CrudOps{
             []() { return listToJson<Alarm>(AlarmService().findAll()); },
